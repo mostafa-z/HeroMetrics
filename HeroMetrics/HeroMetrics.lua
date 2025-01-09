@@ -106,14 +106,14 @@ local function UpdateXP()
 	if level < maxLevel then
 		local _, itemLevel = GetAverageItemLevel()
 		xpText:SetText(string.format(
-			"%s\nItem Level: %.2f\n\nTo achieve level: %d\nXP Remaining: %d\nLast XP Change: %d\nIterations Remaining: %d",
+			"%s\n\niLevel: %.2f\n\nTo achieve level: %d\nXP Remaining: %d\nLast XP Change: %d\nIterations Remaining: %d",
 			UnitName("player"), itemLevel, level + 1, xpRemaining, xpChange, iterationsNeeded
 		))
 		xpProgressText:SetText("XP Progress: " .. xpPercent .. "%")
 	else
 		local _, itemLevel = GetAverageItemLevel()
 		xpText:SetText(string.format(
-			"%s - Level: %d\nItem Level: %.2f",
+			"%s - %d\n\niLevel: %.2f",
 			UnitName("player"), level, itemLevel
 		))
 	end
