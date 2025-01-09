@@ -16,9 +16,13 @@ local xpText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 xpText:SetFont(xpText:GetFont(), 12)
 xpText:SetPoint("TOP", xpFrame, "TOP", 0, -10)
 
+local xpProgressText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+xpProgressText:SetFont(xpProgressText:GetFont(), 18)
+xpProgressText:SetPoint("TOP", xpText, "BOTTOM", 0, -10)
+
 local uptimeText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 uptimeText:SetFont(uptimeText:GetFont(), 12)
-uptimeText:SetPoint("BOTTOM", xpFrame, "BOTTOM", 0, 10)
+uptimeText:SetPoint("BOTTOM", xpProgressText, "BOTTOM", 0, -20)
 
 -- Initialize variables
 local lastXP = UnitXP("player")
@@ -29,10 +33,10 @@ local sideSpacing = 10  -- Adjustable side spacing
 
 -- Function to adjust frame size based on text content
 local function AdjustFrameSize()
-	local textWidth = math.max(xpText:GetStringWidth())
-	local textHeight = xpText:GetStringHeight()
+	local textWidth = math.max(xpText:GetStringWidth(), xpProgressText:GetStringWidth(), uptimeText:GetStringWidth())
+	local textHeight = xpText:GetStringHeight() + xpProgressText:GetStringHeight() + uptimeText:GetStringHeight()
 
-	textHeight = textHeight + 40  -- Adjust padding as needed
+	textHeight = textHeight + 50  -- Adjust padding as needed
 
 	xpFrame:SetSize(textWidth + 2 * sideSpacing, textHeight)
 end
@@ -65,9 +69,10 @@ local function UpdateXP()
 	if level < maxLevel then
 		local _, itemLevel = GetAverageItemLevel()
 		xpText:SetText(string.format(
-			"%s\nItem Level: %.2f\n\nTo achieve level: %d\nXP Remaining: %d\nXP Percent: %d%%\nLast XP Change: %d\nIterations Remaining: %d",
-			UnitName("player"), itemLevel, level + 1, xpRemaining, xpPercent, xpChange, iterationsNeeded
+			"%s\nItem Level: %.2f\n\nTo achieve level: %d\nXP Remaining: %d\nLast XP Change: %d\nIterations Remaining: %d",
+			UnitName("player"), itemLevel, level + 1, xpRemaining, xpChange, iterationsNeeded
 		))
+		xpProgressText:SetText("XP Progress: " .. xpPercent .. "%")
 	else
 		local _, itemLevel = GetAverageItemLevel()
 		xpText:SetText(string.format(
