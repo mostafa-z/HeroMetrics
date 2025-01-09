@@ -24,12 +24,22 @@ local uptimeText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 uptimeText:SetFont(uptimeText:GetFont(), 12)
 uptimeText:SetPoint("BOTTOM", xpProgressText, "BOTTOM", 0, -20)
 
+-- Create a standalone FontString for text-only notifications
+local notificationText = UIParent:CreateFontString(nil, "OVERLAY")
+notificationText:SetFont("Interface\\AddOns\\HeroMetrics\\fonts\\MagistralTTBold.TTF", 24, "OUTLINE")  -- Default font and size
+notificationText:SetPoint("CENTER", 0, 0)  -- Default position (center of screen)
+notificationText:SetTextColor(1, 1, 0)  -- Default text color (yellow)
+notificationText:Hide()  -- Hide initially
+
 -- Initialize variables
 local lastXP = UnitXP("player")
 local startTime = GetTime()
 local soundInterval = 25
 local soundPlayed = false
 local sideSpacing = 10  -- Adjustable side spacing
+
+local addonStartTime = GetTime()
+local lastNotificationTime = 0  -- Tracks the last notification time
 
 -- Function to adjust frame size based on text content
 local function AdjustFrameSize()
@@ -44,12 +54,39 @@ end
 AdjustFrameSize()
 
 -- Function to calculate uptime
-local function CalculateUptime()
+local function FormatTime()
 	local uptime = GetTime() - startTime
 	local hours = math.floor(uptime / 3600)
 	local minutes = math.floor((uptime % 3600) / 60)
 	local secs = math.floor(uptime % 60)
 	return string.format("%02d:%02d:%02d", hours, minutes, secs)
+end
+
+-- Function to display a text notification with customizable options
+local function ShowNotificationMessage(message, duration, fontSize, xOffset, yOffset)
+    notificationText:SetText(message)
+    notificationText:SetFont("Interface\\AddOns\\HeroMetrics\\fonts\\MagistralTTBold.TTF", fontSize or 24, "OUTLINE")
+
+    -- Adjust position based on provided offsets
+    notificationText:ClearAllPoints()
+    notificationText:SetPoint("CENTER", UIParent, "CENTER", xOffset or 0, yOffset or 0)
+
+    -- Show the text and hide it after the specified duration
+    notificationText:Show()
+    C_Timer.After(duration or 3, function()
+        notificationText:Hide()
+    end)
+end
+
+-- Example usage for hourly uptime notification
+local function CheckUptimeNotification()
+    local uptime = GetTime() - addonStartTime
+
+    if uptime >= lastNotificationTime + 3600 then
+        lastNotificationTime = uptime
+        ShowNotificationMessage("Uptime Alert: " .. FormatTime(uptime), 5, 48, 0, 200)
+        PlaySound(SOUNDKIT.READY_CHECK, "Master")
+    end
 end
 
 -- Function to update the XP text
@@ -95,18 +132,23 @@ local function UpdateXP()
 	AdjustFrameSize()
 end
 
--- Event handler for XP updates and login
+-- Event handler for XP updates and login, ticker once
 xpFrame:SetScript("OnEvent", function(self, event, ...)
-	if event == "PLAYER_LOGIN" or event == "PLAYER_XP_UPDATE" then
-		UpdateXP()
-	end
+    if event == "PLAYER_LOGIN" then
+        UpdateXP()
+        if not xpFrame.uptimeTicker then
+            xpFrame.uptimeTicker = C_Timer.NewTicker(1, CheckUptimeNotification)
+        end
+    elseif event == "PLAYER_XP_UPDATE" then
+        UpdateXP()
+    end
 end)
 xpFrame:RegisterEvent("PLAYER_XP_UPDATE")
 xpFrame:RegisterEvent("PLAYER_LOGIN")
 
 -- Periodic updates for uptime only
 xpFrame:SetScript("OnUpdate", function(self, elapsed)
-	uptimeText:SetText("Uptime: " .. CalculateUptime())
+	uptimeText:SetText("Uptime: " .. FormatTime())
 end)
 
 -- Enable the frame to be moved by dragging
