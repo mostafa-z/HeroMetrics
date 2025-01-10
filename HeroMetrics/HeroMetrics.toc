@@ -2,5 +2,6 @@
 ## Title: HeroMetrics
 ## Notes: An epic touch for tracking hero gear and stats
 ## Version: 1
+## SavedVariables: HeroMetricsDB
 ## Author: mostafa-z
 HeroMetrics.lua

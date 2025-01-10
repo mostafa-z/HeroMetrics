@@ -1,3 +1,4 @@
+local addonName, HeroMetrics = ...
 local xpFrame = CreateFrame("Frame", "HeroMetrics", UIParent, "BackdropTemplate")
 
 -- Set up frame appearance and position
@@ -31,9 +32,16 @@ notificationText:SetPoint("CENTER", 0, 0)  -- Default position (center of screen
 notificationText:SetTextColor(1, 1, 0)  -- Default text color (yellow)
 notificationText:Hide()  -- Hide initially
 
+-- Global saved variable for all characters
+HeroMetricsDB = HeroMetricsDB or {}
+
 -- Initialize variables
-local lastXP = UnitXP("player")
+local lastXP = 0
 local startTime = GetTime()
+local lastXPChange = 0
+local previousXPChange = 0
+local iterationsNeeded = 0
+local lastKnownXP = 0
 local soundInterval = 25
 local soundPlayed = false
 local sideSpacing = 10  -- Adjustable side spacing
@@ -88,25 +96,62 @@ local function CheckUptimeNotification()
 	end
 end
 
+local function GetCharacterKey()
+	return UnitName("player") .. "-" .. GetRealmName()
+end
+
+-- Function to save progress data
+local function SaveProgress()
+	local characterKey = GetCharacterKey()
+	HeroMetricsDB[characterKey] = HeroMetricsDB[characterKey] or {}
+	HeroMetricsDB[characterKey].lastXPChange = lastXPChange
+	HeroMetricsDB[characterKey].previousXPChange = previousXPChange
+	HeroMetricsDB[characterKey].iterationsNeeded = iterationsNeeded
+	HeroMetricsDB[characterKey].lastKnownXP = lastKnownXP
+end
+
+-- Function to load progress data
+local function LoadProgress()
+	local characterKey = GetCharacterKey()
+	local data = HeroMetricsDB[characterKey]
+	if data then
+		lastXPChange = data.lastXPChange or 0
+		previousXPChange = data.previousXPChange or 0
+		iterationsNeeded = data.iterationsNeeded or 0
+		lastKnownXP = data.lastKnownXP
+	else
+		lastXPChange = 0
+		previousXPChange = 0
+		iterationsNeeded = 0
+		lastKnownXP = lastKnownXP
+	end
+end
+
 -- Function to update the XP text
 local function UpdateXP()
 	local maxLevel = GetMaxPlayerLevel()
 	local level = UnitLevel("player")
 	local currentXP = UnitXP("player")
 	local maxXP = UnitXPMax("player")
-	local xpPercent = math.floor((currentXP / maxXP) * 100)
-	local xpChange = currentXP - lastXP
+	local xpPercent = maxXP > 0 and math.floor((currentXP / maxXP) * 100) or 0
 	local xpRemaining = maxXP - currentXP
 
-	-- Calculate iterations needed
-	local iterationsNeeded = xpChange > 0 and math.ceil(xpRemaining / xpChange) or 0
+	-- Update XP change only if XP has increased
+	if currentXP > lastKnownXP then
+		previousXPChange = lastXPChange
+		lastXPChange = currentXP - lastKnownXP
+		iterationsNeeded = lastXPChange > 0 and math.ceil(xpRemaining / lastXPChange) or 0
+
+		-- Save progress data
+		SaveProgress()
+	end
 
 	-- Update the displayed XP text
 	if level < maxLevel then
 		local _, itemLevel = GetAverageItemLevel()
 		xpText:SetText(string.format(
-			"%s\n\niLevel: %.2f\n\nTo achieve level: %d\nXP Remaining: %d\nLast XP Change: %d\nIterations Remaining: %d",
-			UnitName("player"), itemLevel, level + 1, xpRemaining, xpChange, iterationsNeeded
+			"%s\n\niLevel: %.2f\n\nTo level: %d\nXP Remaining: %d\nPrev XP: %d\nLast XP: %d\nIterations: %d",
+			UnitName("player"), itemLevel, level + 1, xpRemaining, previousXPChange, lastXPChange, iterationsNeeded
 		))
 		xpProgressText:SetText("XP Progress: " .. xpPercent .. "%")
 	else
@@ -125,8 +170,8 @@ local function UpdateXP()
 		soundPlayed = false
 	end
 
-	-- Update lastXP for next calculation
-	lastXP = currentXP
+	-- Update last known XP for the next calculation
+	lastKnownXP = currentXP
 	
 	AdjustFrameSize()
 end
@@ -134,16 +179,20 @@ end
 -- Event handler for XP updates and login, ticker once
 xpFrame:SetScript("OnEvent", function(self, event, ...)
 	if event == "PLAYER_LOGIN" then
+		LoadProgress()
 		UpdateXP()
 		if not xpFrame.uptimeTicker then
 			xpFrame.uptimeTicker = C_Timer.NewTicker(1, CheckUptimeNotification)
 		end
 	elseif event == "PLAYER_XP_UPDATE" then
 		UpdateXP()
+	elseif event == "PLAYER_LOGOUT" then
+		SaveProgress()
 	end
 end)
-xpFrame:RegisterEvent("PLAYER_XP_UPDATE")
 xpFrame:RegisterEvent("PLAYER_LOGIN")
+xpFrame:RegisterEvent("PLAYER_XP_UPDATE")
+xpFrame:RegisterEvent("PLAYER_LOGOUT")
 
 -- Periodic updates for uptime only
 xpFrame:SetScript("OnUpdate", function(self, elapsed)
