@@ -138,6 +138,9 @@ local function UpdateXP()
 
 	-- Update XP change only if XP has increased
 	if currentXP > lastKnownXP then
+		if lastKnownXP == 0 then
+			lastKnownXP = currentXP
+		end
 		previousXPChange = lastXPChange
 		lastXPChange = currentXP - lastKnownXP
 		iterationsNeeded = lastXPChange > 0 and math.ceil(xpRemaining / lastXPChange) or 0
