@@ -55,37 +55,37 @@ AdjustFrameSize()
 
 -- Function to calculate uptime
 local function FormatTime(uptime)
-    local hours = math.floor(uptime / 3600)
-    local minutes = math.floor((uptime % 3600) / 60)
-    local secs = math.floor(uptime % 60)
-    return string.format("%02d:%02d:%02d", hours, minutes, secs)
+	local hours = math.floor(uptime / 3600)
+	local minutes = math.floor((uptime % 3600) / 60)
+	local secs = math.floor(uptime % 60)
+	return string.format("%02d:%02d:%02d", hours, minutes, secs)
 end
 
 -- Function to display a text notification with customizable options
 local function ShowNotificationMessage(message, duration, fontSize, xOffset, yOffset)
-    notificationText:SetText(message)
-    notificationText:SetFont("Interface\\AddOns\\HeroMetrics\\fonts\\MagistralTTBold.TTF", fontSize or 24, "OUTLINE")
+	notificationText:SetText(message)
+	notificationText:SetFont("Interface\\AddOns\\HeroMetrics\\fonts\\MagistralTTBold.TTF", fontSize or 24, "OUTLINE")
 
-    -- Adjust position based on provided offsets
-    notificationText:ClearAllPoints()
-    notificationText:SetPoint("CENTER", UIParent, "CENTER", xOffset or 0, yOffset or 0)
+	-- Adjust position based on provided offsets
+	notificationText:ClearAllPoints()
+	notificationText:SetPoint("CENTER", UIParent, "CENTER", xOffset or 0, yOffset or 0)
 
-    -- Show the text and hide it after the specified duration
-    notificationText:Show()
-    C_Timer.After(duration or 3, function()
-        notificationText:Hide()
-    end)
+	-- Show the text and hide it after the specified duration
+	notificationText:Show()
+	C_Timer.After(duration or 3, function()
+		notificationText:Hide()
+	end)
 end
 
 -- Example usage for hourly uptime notification
 local function CheckUptimeNotification()
-    local uptime = GetTime() - addonStartTime
+	local uptime = GetTime() - addonStartTime
 
-    if uptime >= lastNotificationTime + 3600 then
-        lastNotificationTime = uptime
-        ShowNotificationMessage("Uptime Alert: " .. FormatTime(uptime), 5, 48, 0, 200)
-        PlaySound(SOUNDKIT.READY_CHECK, "Master")
-    end
+	if uptime >= lastNotificationTime + 3600 then
+		lastNotificationTime = uptime
+		ShowNotificationMessage("Uptime Alert: " .. FormatTime(uptime), 5, 48, 0, 200)
+		PlaySound(SOUNDKIT.READY_CHECK, "Master")
+	end
 end
 
 -- Function to update the XP text
@@ -133,14 +133,14 @@ end
 
 -- Event handler for XP updates and login, ticker once
 xpFrame:SetScript("OnEvent", function(self, event, ...)
-    if event == "PLAYER_LOGIN" then
-        UpdateXP()
-        if not xpFrame.uptimeTicker then
-            xpFrame.uptimeTicker = C_Timer.NewTicker(1, CheckUptimeNotification)
-        end
-    elseif event == "PLAYER_XP_UPDATE" then
-        UpdateXP()
-    end
+	if event == "PLAYER_LOGIN" then
+		UpdateXP()
+		if not xpFrame.uptimeTicker then
+			xpFrame.uptimeTicker = C_Timer.NewTicker(1, CheckUptimeNotification)
+		end
+	elseif event == "PLAYER_XP_UPDATE" then
+		UpdateXP()
+	end
 end)
 xpFrame:RegisterEvent("PLAYER_XP_UPDATE")
 xpFrame:RegisterEvent("PLAYER_LOGIN")
