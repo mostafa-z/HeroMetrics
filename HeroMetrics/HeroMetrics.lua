@@ -54,12 +54,11 @@ end
 AdjustFrameSize()
 
 -- Function to calculate uptime
-local function FormatTime()
-	local uptime = GetTime() - startTime
-	local hours = math.floor(uptime / 3600)
-	local minutes = math.floor((uptime % 3600) / 60)
-	local secs = math.floor(uptime % 60)
-	return string.format("%02d:%02d:%02d", hours, minutes, secs)
+local function FormatTime(uptime)
+    local hours = math.floor(uptime / 3600)
+    local minutes = math.floor((uptime % 3600) / 60)
+    local secs = math.floor(uptime % 60)
+    return string.format("%02d:%02d:%02d", hours, minutes, secs)
 end
 
 -- Function to display a text notification with customizable options
@@ -148,7 +147,8 @@ xpFrame:RegisterEvent("PLAYER_LOGIN")
 
 -- Periodic updates for uptime only
 xpFrame:SetScript("OnUpdate", function(self, elapsed)
-	uptimeText:SetText("Uptime: " .. FormatTime())
+	local uptime = GetTime() - addonStartTime
+	uptimeText:SetText("Uptime: " .. FormatTime(uptime))
 end)
 
 -- Enable the frame to be moved by dragging
