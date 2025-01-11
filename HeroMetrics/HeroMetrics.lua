@@ -196,6 +196,14 @@ local function UpdateXP()
 	AdjustFrameSize()
 end
 
+local function GetPVPStatus()
+	if C_PvP.IsWarModeDesired() then
+		xpFrame:SetBackdropBorderColor(1, 0, 0, 1) --Red
+	else
+		xpFrame:SetBackdropBorderColor(1, 1, 1, 1) --White
+	end
+end
+
 -- Function to get player's race, class, and specialization
 local function GetPlayerRaceClassAndSpec()
 	local _, playerClass = UnitClass("player")
@@ -351,11 +359,14 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 		ResetSession()
 		LoadProgress()
 		UpdateXP()
+		GetPVPStatus()
 		if not xpFrame.uptimeTicker then
 			xpFrame.uptimeTicker = C_Timer.NewTicker(1, CheckUptimeNotification)
 		end
 	elseif event == "PLAYER_XP_UPDATE" then
 		UpdateXP()
+	elseif event == "PLAYER_FLAGS_CHANGED" then
+		GetPVPStatus()
 	elseif event == "PLAYER_LOGOUT" then
 		SaveProgress()
 	end
@@ -363,6 +374,7 @@ end)
 xpFrame:RegisterEvent("PLAYER_LOGIN")
 xpFrame:RegisterEvent("PLAYER_XP_UPDATE")
 xpFrame:RegisterEvent("PLAYER_LOGOUT")
+xpFrame:RegisterEvent("PLAYER_FLAGS_CHANGED")
 
 -- Periodic updates for uptime only
 xpFrame:SetScript("OnUpdate", function(self, elapsed)
