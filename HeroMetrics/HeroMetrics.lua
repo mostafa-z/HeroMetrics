@@ -178,6 +178,8 @@ local function UpdateXP()
 			"%s - %d\n\niLevel: %.2f",
 			UnitName("player"), level, itemLevel
 		))
+		iterationText:SetText("")
+		xpProgressText:SetText("")
 	end
 
 	-- Handle sound notification
