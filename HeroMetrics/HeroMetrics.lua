@@ -224,6 +224,9 @@ xpFrame:EnableMouse(true)
 xpFrame:SetScript("OnMouseDown", function(self, button)
 	if button == "LeftButton" then
 		self:StartMoving()
+	elseif button == "RightButton" then
+		self:ClearAllPoints()
+		self:SetPoint("TOPLEFT")
 	end
 end)
 xpFrame:SetScript("OnMouseUp", function(self, button)
