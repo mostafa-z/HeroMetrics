@@ -17,9 +17,13 @@ local xpText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 xpText:SetFont(xpText:GetFont(), 12)
 xpText:SetPoint("TOP", xpFrame, "TOP", 0, -10)
 
+local iterationText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+iterationText:SetFont(iterationText:GetFont(), 18)
+iterationText:SetPoint("TOP", xpText, "BOTTOM", 0, -10)
+
 local xpProgressText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 xpProgressText:SetFont(xpProgressText:GetFont(), 18)
-xpProgressText:SetPoint("TOP", xpText, "BOTTOM", 0, -10)
+xpProgressText:SetPoint("TOP", iterationText, "BOTTOM", 0, -10)
 
 local uptimeText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 uptimeText:SetFont(uptimeText:GetFont(), 12)
@@ -51,10 +55,10 @@ local lastNotificationTime = 0  -- Tracks the last notification time
 
 -- Function to adjust frame size based on text content
 local function AdjustFrameSize()
-	local textWidth = math.max(xpText:GetStringWidth(), xpProgressText:GetStringWidth(), uptimeText:GetStringWidth())
-	local textHeight = xpText:GetStringHeight() + xpProgressText:GetStringHeight() + uptimeText:GetStringHeight()
+	local textWidth = math.max(xpText:GetStringWidth(), iterationText:GetStringWidth(), xpProgressText:GetStringWidth(), uptimeText:GetStringWidth())
+	local textHeight = xpText:GetStringHeight() + iterationText:GetStringHeight() + xpProgressText:GetStringHeight() + uptimeText:GetStringHeight()
 
-	textHeight = textHeight + 50  -- Adjust padding as needed
+	textHeight = textHeight + 60  -- Adjust padding as needed
 
 	xpFrame:SetSize(textWidth + 2 * sideSpacing, textHeight)
 end
@@ -153,9 +157,10 @@ local function UpdateXP()
 	if level < maxLevel then
 		local _, itemLevel = GetAverageItemLevel()
 		xpText:SetText(string.format(
-			"%s\n\niLevel: %.2f\n\nTo level: %d\nXP Remaining: %d\nPrev XP: %d\nLast XP: %d\nIterations: %d",
-			UnitName("player"), itemLevel, level + 1, xpRemaining, previousXPChange, lastXPChange, iterationsNeeded
+			"%s\n\niLevel: %.2f\n\nTo level: %d\nXP Remaining: %d\nPrev XP: %d\nLast XP: %d",
+			UnitName("player"), itemLevel, level + 1, xpRemaining, previousXPChange, lastXPChange
 		))
+		iterationText:SetText("Iterations: " .. iterationsNeeded)
 		xpProgressText:SetText("XP Progress: " .. xpPercent .. "%")
 	else
 		local _, itemLevel = GetAverageItemLevel()
