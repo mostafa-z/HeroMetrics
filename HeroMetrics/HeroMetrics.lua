@@ -1,3 +1,4 @@
+local addonName, HeroMetrics = ...
 local xpFrame = CreateFrame("Frame", "HeroMetrics", UIParent, "BackdropTemplate")
 
 -- Set up frame appearance and position
@@ -16,23 +17,48 @@ local xpText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 xpText:SetFont(xpText:GetFont(), 12)
 xpText:SetPoint("TOP", xpFrame, "TOP", 0, -10)
 
+local iterationText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+iterationText:SetFont(iterationText:GetFont(), 18)
+iterationText:SetPoint("TOP", xpText, "BOTTOM", 0, -10)
+
+local xpProgressText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+xpProgressText:SetFont(xpProgressText:GetFont(), 18)
+xpProgressText:SetPoint("TOP", iterationText, "BOTTOM", 0, -10)
+
 local uptimeText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 uptimeText:SetFont(uptimeText:GetFont(), 12)
-uptimeText:SetPoint("BOTTOM", xpFrame, "BOTTOM", 0, 10)
+uptimeText:SetPoint("BOTTOM", xpProgressText, "BOTTOM", 0, -20)
+
+-- Create a standalone FontString for text-only notifications
+local notificationText = UIParent:CreateFontString(nil, "OVERLAY")
+notificationText:SetFont("Interface\\AddOns\\HeroMetrics\\fonts\\MagistralTTBold.TTF", 24, "OUTLINE")  -- Default font and size
+notificationText:SetPoint("CENTER", 0, 0)  -- Default position (center of screen)
+notificationText:SetTextColor(1, 1, 0)  -- Default text color (yellow)
+notificationText:Hide()  -- Hide initially
+
+-- Global saved variable for all characters
+HeroMetricsDB = HeroMetricsDB or {}
 
 -- Initialize variables
-local lastXP = UnitXP("player")
+local lastXP = 0
 local startTime = GetTime()
+local lastXPChange = 0
+local previousXPChange = 0
+local iterationsNeeded = 0
+local lastKnownXP = 0
 local soundInterval = 25
 local soundPlayed = false
 local sideSpacing = 10  -- Adjustable side spacing
 
+local addonStartTime = GetTime()
+local lastNotificationTime = 0  -- Tracks the last notification time
+
 -- Function to adjust frame size based on text content
 local function AdjustFrameSize()
-	local textWidth = math.max(xpText:GetStringWidth())
-	local textHeight = xpText:GetStringHeight()
+	local textWidth = math.max(xpText:GetStringWidth(), iterationText:GetStringWidth(), xpProgressText:GetStringWidth(), uptimeText:GetStringWidth())
+	local textHeight = xpText:GetStringHeight() + iterationText:GetStringHeight() + xpProgressText:GetStringHeight() + uptimeText:GetStringHeight()
 
-	textHeight = textHeight + 40  -- Adjust padding as needed
+	textHeight = textHeight + 60  -- Adjust padding as needed
 
 	xpFrame:SetSize(textWidth + 2 * sideSpacing, textHeight)
 end
@@ -40,12 +66,74 @@ end
 AdjustFrameSize()
 
 -- Function to calculate uptime
-local function CalculateUptime()
-	local uptime = GetTime() - startTime
+local function FormatTime(uptime)
 	local hours = math.floor(uptime / 3600)
 	local minutes = math.floor((uptime % 3600) / 60)
 	local secs = math.floor(uptime % 60)
 	return string.format("%02d:%02d:%02d", hours, minutes, secs)
+end
+
+-- Function to display a text notification with customizable options
+local function ShowNotificationMessage(message, duration, fontSize, xOffset, yOffset)
+	notificationText:SetText(message)
+	notificationText:SetFont("Interface\\AddOns\\HeroMetrics\\fonts\\MagistralTTBold.TTF", fontSize or 24, "OUTLINE")
+
+	-- Adjust position based on provided offsets
+	notificationText:ClearAllPoints()
+	notificationText:SetPoint("CENTER", UIParent, "CENTER", xOffset or 0, yOffset or 0)
+
+	-- Show the text and hide it after the specified duration
+	notificationText:Show()
+	C_Timer.After(duration or 3, function()
+		notificationText:Hide()
+	end)
+end
+
+-- Example usage for hourly uptime notification
+local function CheckUptimeNotification()
+	local uptime = GetTime() - addonStartTime
+
+	if uptime >= lastNotificationTime + 3600 then
+		lastNotificationTime = uptime
+		ShowNotificationMessage("Uptime Alert: " .. FormatTime(uptime), 5, 48, 0, 200)
+		PlaySound(SOUNDKIT.READY_CHECK, "Master")
+	end
+end
+
+local function GetCharacterKey()
+	return UnitName("player") .. "-" .. GetRealmName()
+end
+
+-- Function to save progress data
+local function SaveProgress()
+	local characterKey = GetCharacterKey()
+	HeroMetricsDB[characterKey] = HeroMetricsDB[characterKey] or {}
+	HeroMetricsDB[characterKey].lastXPChange = lastXPChange
+	HeroMetricsDB[characterKey].previousXPChange = previousXPChange
+	HeroMetricsDB[characterKey].iterationsNeeded = iterationsNeeded
+	HeroMetricsDB[characterKey].lastKnownXP = lastKnownXP
+end
+
+-- Function to load progress data
+local function LoadProgress()
+	local characterKey = GetCharacterKey()
+	local data = HeroMetricsDB[characterKey]
+	if data then
+		lastXPChange = data.lastXPChange or 0
+		previousXPChange = data.previousXPChange or 0
+		iterationsNeeded = data.iterationsNeeded or 0
+		lastKnownXP = data.lastKnownXP
+	else
+		lastXPChange = 0
+		previousXPChange = 0
+		iterationsNeeded = 0
+		lastKnownXP = lastKnownXP
+	end
+end
+
+-- Function to calculate iterations needed per XP gain
+local function perXPiteration(xpChange, xpRemaining)
+	return xpChange > 0 and math.ceil(xpRemaining / xpChange) or 0
 end
 
 -- Function to update the XP text
@@ -54,24 +142,40 @@ local function UpdateXP()
 	local level = UnitLevel("player")
 	local currentXP = UnitXP("player")
 	local maxXP = UnitXPMax("player")
-	local xpPercent = math.floor((currentXP / maxXP) * 100)
-	local xpChange = currentXP - lastXP
+	local xpPercent = maxXP > 0 and math.floor((currentXP / maxXP) * 100) or 0
 	local xpRemaining = maxXP - currentXP
 
-	-- Calculate iterations needed
-	local iterationsNeeded = xpChange > 0 and math.ceil(xpRemaining / xpChange) or 0
+	-- Update XP change only if XP has increased
+	if currentXP > lastKnownXP then
+		if lastKnownXP == 0 then
+			lastKnownXP = currentXP
+		end
+		previousXPChange = lastXPChange
+		lastXPChange = currentXP - lastKnownXP
+		iterationsNeeded = perXPiteration(lastXPChange, xpRemaining)
+
+		-- Save progress data
+		SaveProgress()
+	end
+
+	-- Calculate iterations for previous and last XP changes
+	local previousIterations = perXPiteration(previousXPChange, xpRemaining)
+	local lastIterations = perXPiteration(lastXPChange, xpRemaining)
 
 	-- Update the displayed XP text
 	if level < maxLevel then
 		local _, itemLevel = GetAverageItemLevel()
 		xpText:SetText(string.format(
-			"%s\nItem Level: %.2f\n\nTo achieve level: %d\nXP Remaining: %d\nXP Percent: %d%%\nLast XP Change: %d\nIterations Remaining: %d",
-			UnitName("player"), itemLevel, level + 1, xpRemaining, xpPercent, xpChange, iterationsNeeded
+			"%s\n\niLevel: %.2f\n\nTo level: %d\nXP Remaining: %d\nPrev XP: %d - %d\nLast XP: %d - %d",
+			UnitName("player"), itemLevel, level + 1, xpRemaining,
+			previousXPChange, previousIterations, lastXPChange, lastIterations
 		))
+		iterationText:SetText("Iterations: " .. iterationsNeeded)
+		xpProgressText:SetText("XP Progress: " .. xpPercent .. "%")
 	else
 		local _, itemLevel = GetAverageItemLevel()
 		xpText:SetText(string.format(
-			"%s - Level: %d\nItem Level: %.2f",
+			"%s - %d\n\niLevel: %.2f",
 			UnitName("player"), level, itemLevel
 		))
 	end
@@ -84,24 +188,34 @@ local function UpdateXP()
 		soundPlayed = false
 	end
 
-	-- Update lastXP for next calculation
-	lastXP = currentXP
+	-- Update last known XP for the next calculation
+	lastKnownXP = currentXP
 	
 	AdjustFrameSize()
 end
 
--- Event handler for XP updates and login
+-- Event handler for XP updates and login, ticker once
 xpFrame:SetScript("OnEvent", function(self, event, ...)
-	if event == "PLAYER_LOGIN" or event == "PLAYER_XP_UPDATE" then
+	if event == "PLAYER_LOGIN" then
+		LoadProgress()
 		UpdateXP()
+		if not xpFrame.uptimeTicker then
+			xpFrame.uptimeTicker = C_Timer.NewTicker(1, CheckUptimeNotification)
+		end
+	elseif event == "PLAYER_XP_UPDATE" then
+		UpdateXP()
+	elseif event == "PLAYER_LOGOUT" then
+		SaveProgress()
 	end
 end)
-xpFrame:RegisterEvent("PLAYER_XP_UPDATE")
 xpFrame:RegisterEvent("PLAYER_LOGIN")
+xpFrame:RegisterEvent("PLAYER_XP_UPDATE")
+xpFrame:RegisterEvent("PLAYER_LOGOUT")
 
 -- Periodic updates for uptime only
 xpFrame:SetScript("OnUpdate", function(self, elapsed)
-	uptimeText:SetText("Uptime: " .. CalculateUptime())
+	local uptime = GetTime() - addonStartTime
+	uptimeText:SetText("Uptime: " .. FormatTime(uptime))
 end)
 
 -- Enable the frame to be moved by dragging
@@ -110,6 +224,9 @@ xpFrame:EnableMouse(true)
 xpFrame:SetScript("OnMouseDown", function(self, button)
 	if button == "LeftButton" then
 		self:StartMoving()
+	elseif button == "RightButton" then
+		self:ClearAllPoints()
+		self:SetPoint("TOPLEFT")
 	end
 end)
 xpFrame:SetScript("OnMouseUp", function(self, button)
