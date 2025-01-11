@@ -367,6 +367,14 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 		UpdateXP()
 	elseif event == "PLAYER_FLAGS_CHANGED" then
 		GetPVPStatus()
+	elseif event == "PLAYER_EQUIPMENT_CHANGED" then
+		if delayTimer then
+			delayTimer:Cancel()
+		end
+
+		delayTimer = C_Timer.NewTimer(0.5, function()
+			UpdateXP()
+		end)
 	elseif event == "PLAYER_LOGOUT" then
 		SaveProgress()
 	end
@@ -375,6 +383,7 @@ xpFrame:RegisterEvent("PLAYER_LOGIN")
 xpFrame:RegisterEvent("PLAYER_XP_UPDATE")
 xpFrame:RegisterEvent("PLAYER_LOGOUT")
 xpFrame:RegisterEvent("PLAYER_FLAGS_CHANGED")
+xpFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 
 -- Periodic updates for uptime only
 xpFrame:SetScript("OnUpdate", function(self, elapsed)
