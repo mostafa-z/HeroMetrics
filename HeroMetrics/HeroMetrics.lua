@@ -196,9 +196,159 @@ local function UpdateXP()
 	AdjustFrameSize()
 end
 
+-- Function to get player's race, class, and specialization
+local function GetPlayerRaceClassAndSpec()
+	local _, playerClass = UnitClass("player")
+	local playerRace = UnitRace("player")
+	local classColor = RAID_CLASS_COLORS[playerClass].colorStr
+
+	local specIndex = GetSpecialization()
+	local specID, specName = GetSpecializationInfo(specIndex)
+
+	return playerRace, playerClass, classColor, specName
+end
+
+-- Function to add race, class, and specialization to the tooltip
+local function AddRaceClassAndSpecToTooltip(tooltip)
+	local race, class, classColor, spec = GetPlayerRaceClassAndSpec()
+	tooltip:AddLine("Character Statistics:", 1, 1, 1)
+	tooltip:AddLine(string.format("|c%s%s %s %s|r", classColor, race, spec, class), 1, 1, 1)
+end
+
+-- Get realm name
+local function GetRealmNameText()
+	return "Realm: " .. GetRealmName()
+end
+
+-- Get zone name
+local function GetZoneNameText()
+	return "Current Zone: " .. GetZoneText()
+end
+
+-- Function to format gold
+local function FormatGold(copper)
+	local gold = math.floor(copper / 10000)
+	local silver = math.floor((copper % 10000) / 100)
+	copper = copper % 100
+	return string.format("%d gold, %d silver, %d copper", gold, silver, copper)
+end
+
+-- Currency information
+local function GetCurrencyText()
+	local gold = math.floor(GetMoney() / 10000)
+	local silver = math.floor((GetMoney() % 10000) / 100)
+	local copper = GetMoney() % 100
+	return string.format("• Gold: %d, Silver: %d, Copper: %d", gold, silver, copper)
+end
+
+-- Gold gained in session
+local function GetSessionGoldGained()
+	local goldGained = GetMoney() - startGold
+	return "• Session: " .. FormatGold(goldGained)
+end
+
+local function AddCurrencyToTooltip(tooltip)
+	tooltip:AddLine(" ")
+	tooltip:AddLine("Currency:", 1, 1, 1)
+	tooltip:AddLine(GetCurrencyText(), 1, 1, 1)
+	tooltip:AddLine(GetSessionGoldGained(), 1, 1, 1)
+end
+
+local function GetItemLevelDetails()
+	local itemLevel, avgItemLevelEquipped, avgItemLevelPvp = GetAverageItemLevel()
+	return {
+		itemLevel = itemLevel and string.format("%.2f", itemLevel) or "0.00",
+		avgItemLevelEquipped = avgItemLevelEquipped and string.format("%.2f", avgItemLevelEquipped) or "0.00",
+		avgItemLevelPvp = avgItemLevelPvp and string.format("%.2f", avgItemLevelPvp) or "0.00",
+	}
+end
+
+local function AddItemLevelToTooltip(tooltip)
+	local itemLevelDetails = GetItemLevelDetails()
+
+	tooltip:AddLine(" ")
+	tooltip:AddLine(string.format("Current Item Level (Eqp): • %s", itemLevelDetails.avgItemLevelEquipped), 1, 1, 1)
+	tooltip:AddLine(string.format("Current Item Level (PvE): • %s", itemLevelDetails.itemLevel), 1, 1, 1)
+	tooltip:AddLine(string.format("Current Item Level (PvP): • %s", itemLevelDetails.avgItemLevelPvp), 1, 1, 1)
+end
+
+-- Function to calculate durability percentage
+local function GetDurabilityPercentage()
+	local totalDurability = 0
+	local totalMaxDurability = 0
+	for i = 1, 19 do
+		local current, max = GetInventoryItemDurability(i)
+		if current and max and max > 0 then
+			totalDurability = totalDurability + current
+			totalMaxDurability = totalMaxDurability + max
+		end
+	end
+	if totalMaxDurability > 0 then
+		return (totalDurability / totalMaxDurability) * 100
+	else
+		return nil
+	end
+end
+
+local function AddDurabilityToTooltip(tooltip)
+	durabilityPercentage = GetDurabilityPercentage()
+	if durabilityPercentage and durabilityPercentage < 90 then
+		tooltip:AddLine(" ")
+		tooltip:AddLine("Durability:", 1, 1, 1)
+		tooltip:AddLine(string.format("• %.2f%%", durabilityPercentage), 1, 1, 1)
+	end
+end
+
+-- Function to update the tooltip
+local function UpdateTooltip(tooltip)
+	-- to set tooltip frame on mouse cursor: ANCHOR_CURSOR
+	tooltip:SetOwner(xpFrame, "ANCHOR_RIGHT")
+	tooltip:ClearLines()
+	--RequestTimePlayed()
+
+	tooltip:AddLine(AddRaceClassAndSpecToTooltip(tooltip), 1, 1, 1)
+
+	-- Realm name
+	tooltip:AddLine(" ")
+	tooltip:AddLine(GetRealmNameText(), 1, 1, 1)
+
+	-- Zone
+	tooltip:AddLine(GetZoneNameText(), 1, 1, 1)
+
+	-- Add item level details
+	AddItemLevelToTooltip(tooltip)
+
+	-- Add currency details
+	AddCurrencyToTooltip(tooltip)
+
+	-- Add durability details
+	AddDurabilityToTooltip(tooltip)
+
+	tooltip:Show()
+end
+
+-- Function to reset the session
+local function ResetSession()
+	startGold = GetMoney()
+	goldGained = 0
+end
+
+xpFrame:SetScript("OnEvent", OnEvent)
+
+-- Mouse event handlers for tooltip
+xpFrame:SetScript("OnEnter", function()
+	GameTooltip:Hide() -- Hide the default tooltip
+	UpdateTooltip(GameTooltip)
+end)
+
+xpFrame:SetScript("OnLeave", function()
+	GameTooltip:Hide()
+end)
+
 -- Event handler for XP updates and login, ticker once
 xpFrame:SetScript("OnEvent", function(self, event, ...)
 	if event == "PLAYER_LOGIN" then
+		ResetSession()
 		LoadProgress()
 		UpdateXP()
 		if not xpFrame.uptimeTicker then
