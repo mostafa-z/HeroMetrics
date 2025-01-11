@@ -131,6 +131,11 @@ local function LoadProgress()
 	end
 end
 
+-- Function to calculate iterations needed per XP gain
+local function perXPiteration(xpChange, xpRemaining)
+	return xpChange > 0 and math.ceil(xpRemaining / xpChange) or 0
+end
+
 -- Function to update the XP text
 local function UpdateXP()
 	local maxLevel = GetMaxPlayerLevel()
@@ -147,18 +152,23 @@ local function UpdateXP()
 		end
 		previousXPChange = lastXPChange
 		lastXPChange = currentXP - lastKnownXP
-		iterationsNeeded = lastXPChange > 0 and math.ceil(xpRemaining / lastXPChange) or 0
+		iterationsNeeded = perXPiteration(lastXPChange, xpRemaining)
 
 		-- Save progress data
 		SaveProgress()
 	end
 
+	-- Calculate iterations for previous and last XP changes
+	local previousIterations = perXPiteration(previousXPChange, xpRemaining)
+	local lastIterations = perXPiteration(lastXPChange, xpRemaining)
+
 	-- Update the displayed XP text
 	if level < maxLevel then
 		local _, itemLevel = GetAverageItemLevel()
 		xpText:SetText(string.format(
-			"%s\n\niLevel: %.2f\n\nTo level: %d\nXP Remaining: %d\nPrev XP: %d\nLast XP: %d",
-			UnitName("player"), itemLevel, level + 1, xpRemaining, previousXPChange, lastXPChange
+			"%s\n\niLevel: %.2f\n\nTo level: %d\nXP Remaining: %d\nPrev XP: %d - %d\nLast XP: %d - %d",
+			UnitName("player"), itemLevel, level + 1, xpRemaining,
+			previousXPChange, previousIterations, lastXPChange, lastIterations
 		))
 		iterationText:SetText("Iterations: " .. iterationsNeeded)
 		xpProgressText:SetText("XP Progress: " .. xpPercent .. "%")
