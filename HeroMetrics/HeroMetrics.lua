@@ -385,6 +385,9 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 		end)
 	elseif event == "PLAYER_LOGOUT" then
 		SaveProgress()
+		if uptimeTicker then
+			uptimeTicker:Cancel()
+		end
 	end
 end)
 xpFrame:RegisterEvent("PLAYER_LOGIN")
@@ -405,11 +408,14 @@ mailFrame:SetScript("OnEvent", function(self, event)
 	end
 end)
 
--- Periodic updates for uptime only
-xpFrame:SetScript("OnUpdate", function(self, elapsed)
+-- Function to update uptime text
+local function UpdateUptime()
 	local uptime = GetTime() - addonStartTime
 	uptimeText:SetText("Uptime: " .. FormatTime(uptime))
-end)
+end
+
+-- Start a periodic ticker for uptime updates
+local uptimeTicker = C_Timer.NewTicker(1, UpdateUptime)
 
 -- Enable the frame to be moved by dragging
 xpFrame:SetMovable(true)
