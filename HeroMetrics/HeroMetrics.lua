@@ -89,6 +89,14 @@ local function ShowNotificationMessage(message, duration, fontSize, xOffset, yOf
 	end)
 end
 
+-- Function to notify about new mail
+local function NotifyNewMail()
+	if HasNewMail() then -- Check if the player has new mail
+		ShowNotificationMessage("You Have New Mail!", 10, 36, 0, 200) -- Customize as needed: message, duration, font size, xOffset, yOffset
+		PlaySound(SOUNDKIT.READY_CHECK, "Master")
+	end
+end
+
 -- Example usage for hourly uptime notification
 local function CheckUptimeNotification()
 	local uptime = GetTime() - addonStartTime
@@ -384,6 +392,18 @@ xpFrame:RegisterEvent("PLAYER_XP_UPDATE")
 xpFrame:RegisterEvent("PLAYER_LOGOUT")
 xpFrame:RegisterEvent("PLAYER_FLAGS_CHANGED")
 xpFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+
+-- Register events for mail notification
+local mailFrame = CreateFrame("Frame")
+mailFrame:RegisterEvent("UPDATE_PENDING_MAIL")
+mailFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+
+-- Set up the event handler
+mailFrame:SetScript("OnEvent", function(self, event)
+	if event == "UPDATE_PENDING_MAIL" or event == "PLAYER_ENTERING_WORLD" then
+		NotifyNewMail()
+	end
+end)
 
 -- Periodic updates for uptime only
 xpFrame:SetScript("OnUpdate", function(self, elapsed)
