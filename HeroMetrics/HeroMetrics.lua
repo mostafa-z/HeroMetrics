@@ -74,6 +74,10 @@ local function ShowNotificationMessage(message, duration, fontSize, xOffset, yOf
 	notificationText:ClearAllPoints()
 	notificationText:SetPoint("CENTER", UIParent, "CENTER", xOffset or 0, yOffset or 0)
 
+	notificationText:SetScript("OnMouseDown", function()
+		notificationText:Hide()
+	end)
+
 	notificationText:Show()
 	C_Timer.After(duration or 3, function()
 		notificationText:Hide()
