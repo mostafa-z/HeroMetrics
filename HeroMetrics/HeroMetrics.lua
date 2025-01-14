@@ -83,7 +83,7 @@ end
 local function NotifyNewMail()
 	if HasNewMail() then
 		ShowNotificationMessage("You Have New Mail!", 10, 36, 0, 200) -- Customize as needed: message, duration, font size, xOffset, yOffset
-		PlaySound(SOUNDKIT.READY_CHECK, "Master")
+		PlaySound(SOUNDKIT.PVP_THROUGH_QUEUE, "Master")
 	end
 end
 
