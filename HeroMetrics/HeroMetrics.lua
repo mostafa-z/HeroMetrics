@@ -203,13 +203,13 @@ local function GetPlayerRaceClassAndSpec()
 	local specIndex = GetSpecialization()
 	local specID, specName = GetSpecializationInfo(specIndex)
 
-	return playerRace, playerClass, classColor, specName
+	return playerRace, playerClass, classColor, specName, specID
 end
 
 local function AddRaceClassAndSpecToTooltip(tooltip)
-	local race, class, classColor, spec = GetPlayerRaceClassAndSpec()
+	local race, class, classColor, spec, specID = GetPlayerRaceClassAndSpec()
 	tooltip:AddLine("Character Statistics:", 1, 1, 1)
-	tooltip:AddLine(string.format("|c%s%s %s %s|r", classColor, race, spec, class), 1, 1, 1)
+	tooltip:AddLine(string.format("|c%s%s %s %s - %d|r", classColor, race, spec, class, specID), 1, 1, 1)
 end
 
 local function GetRealmNameText()
