@@ -160,17 +160,24 @@ local function UpdateXP()
 	if level < maxLevel then
 		local _, itemLevel = GetAverageItemLevel()
 		xpText:SetText(string.format(
-			"%s\n\niLevel: %.2f\n\nTo level: %d\nXP Remaining: %d\nRested XP: %d (%.1f%%)\n\nPrev XP: %d - %d\nLast XP: %d - %d",
+			"%s\n\n" ..
+			"|cffffcc00iLevel: %.2f|r\n\n" ..
+			"|cffff9900To Level: %d|r\n" ..
+			"|cffffcc00XP Remaining: %d|r\n" ..
+			"|cff00ffffRested XP: %d (%.1f%%)|r\n\n" ..
+			"|cffffcc00Prev XP: %d - %d|r\n" ..
+			"|cffff9900Last XP: %d - %d|r",
 			UnitName("player"), itemLevel, level + 1, xpRemaining,
 			restedXP, (restedXP / maxXP) * 100,
 			previousXPChange, previousIterations, lastXPChange, lastIterations
 		))
-		iterationText:SetText("Iterations: " .. iterationsNeeded)
-		xpProgressText:SetText("XP Progress: " .. xpPercent .. "%")
+		iterationText:SetText("|cff00ffffIterations: " .. iterationsNeeded .. "|r")
+		xpProgressText:SetText("|cffffcc00XP Progress: " .. xpPercent .. "%|r")
 	else
 		local _, itemLevel = GetAverageItemLevel()
 		xpText:SetText(string.format(
-			"%s - %d\n\niLevel: %.2f",
+			"%s - %d\n\n" ..
+			"|cffffcc00iLevel: %.2f|r",
 			UnitName("player"), level, itemLevel
 		))
 		iterationText:SetText("")
