@@ -141,6 +141,7 @@ local function UpdateXP()
 	local maxXP = UnitXPMax("player")
 	local xpPercent = maxXP > 0 and math.floor((currentXP / maxXP) * 100) or 0
 	local xpRemaining = maxXP - currentXP
+	local restedXP = GetXPExhaustion() or 0
 
 	if currentXP > lastKnownXP then
 		if lastKnownXP == 0 then
@@ -159,8 +160,9 @@ local function UpdateXP()
 	if level < maxLevel then
 		local _, itemLevel = GetAverageItemLevel()
 		xpText:SetText(string.format(
-			"%s\n\niLevel: %.2f\n\nTo level: %d\nXP Remaining: %d\nPrev XP: %d - %d\nLast XP: %d - %d",
+			"%s\n\niLevel: %.2f\n\nTo level: %d\nXP Remaining: %d\nRested XP: %d (%.1f%%)\n\nPrev XP: %d - %d\nLast XP: %d - %d",
 			UnitName("player"), itemLevel, level + 1, xpRemaining,
+			restedXP, (restedXP / maxXP) * 100,
 			previousXPChange, previousIterations, lastXPChange, lastIterations
 		))
 		iterationText:SetText("Iterations: " .. iterationsNeeded)
