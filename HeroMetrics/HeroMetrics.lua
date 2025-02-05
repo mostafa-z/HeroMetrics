@@ -27,6 +27,16 @@ local uptimeText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 uptimeText:SetFont(uptimeText:GetFont(), 12)
 uptimeText:SetPoint("BOTTOM", xpProgressText, "BOTTOM", 0, -20)
 
+local customXPText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+customXPText:SetFont(customXPText:GetFont(), 14)
+customXPText:SetPoint("BOTTOM", uptimeText, "BOTTOM", 0, -30)
+customXPText:Hide()
+
+local customXPTimerText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+customXPTimerText:SetFont(customXPTimerText:GetFont(), 12)
+customXPTimerText:SetPoint("TOP", customXPText, "BOTTOM", 0, -5)
+customXPTimerText:Hide()
+
 local notificationText = UIParent:CreateFontString(nil, "OVERLAY")
 notificationText:SetFont("Interface\\AddOns\\HeroMetrics\\fonts\\MagistralTTBold.TTF", 24, "OUTLINE")
 notificationText:SetPoint("CENTER", 0, 0)
@@ -49,12 +59,36 @@ local sideSpacing = 10
 local addonStartTime = GetTime()
 local lastNotificationTime = 0
 
+local trackingXP = false
+local customXPStart = 0
+
+local customXPStartTime = 0
+local customXPTimer = nil
+
 local function AdjustFrameSize()
-	local textWidth = math.max(xpText:GetStringWidth(), iterationText:GetStringWidth(), xpProgressText:GetStringWidth(), uptimeText:GetStringWidth())
-	local textHeight = xpText:GetStringHeight() + iterationText:GetStringHeight() + xpProgressText:GetStringHeight() + uptimeText:GetStringHeight()
+	local textWidth = math.max(
+		xpText:GetStringWidth(),
+		iterationText:GetStringWidth(),
+		xpProgressText:GetStringWidth(),
+		uptimeText:GetStringWidth(),
+		(customXPText:IsShown() and customXPText:GetStringWidth() or 0),
+		(customXPTimerText:IsShown() and customXPTimerText:GetStringWidth() or 0)
+	)
+
+	local textHeight = xpText:GetStringHeight() +
+		iterationText:GetStringHeight() +
+		xpProgressText:GetStringHeight() +
+		uptimeText:GetStringHeight()
+
+	if customXPText:IsShown() then
+		textHeight = textHeight + customXPText:GetStringHeight() + 5
+	end
+
+	if customXPTimerText:IsShown() then
+		textHeight = textHeight + customXPTimerText:GetStringHeight() + 5
+	end
 
 	textHeight = textHeight + 60
-
 	xpFrame:SetSize(textWidth + 2 * sideSpacing, textHeight)
 end
 
@@ -130,6 +164,72 @@ local function LoadProgress()
 	end
 end
 
+local function ToggleCustomXPTracking()
+	if not trackingXP then
+		customXPStart = UnitXP("player")
+		customXPAccumulated = 0
+		customXPStartTime = GetTime()
+		trackingXP = true
+		customXPText:SetText("Tracking XP: 0")
+		customXPText:Show()
+		customXPTimerText:SetText("Time: 00:00:00")
+		customXPTimerText:Show()
+
+		-- Start timer
+		if customXPTimer then
+			customXPTimer:Cancel()
+		end
+		customXPTimer = C_Timer.NewTicker(1, function()
+			local elapsed = GetTime() - customXPStartTime
+			customXPTimerText:SetText("Time: " .. FormatTime(elapsed))
+		end)
+
+		AdjustFrameSize()
+	else
+		trackingXP = false
+
+		-- Stop timer
+		if customXPTimer then
+			customXPTimer:Cancel()
+			customXPTimer = nil
+		end
+
+		customXPText:SetText("XP Gained: " .. customXPAccumulated)
+		AdjustFrameSize()
+	end
+end
+
+local function UpdateCustomXPTracking()
+	if trackingXP then
+		local currentXP = UnitXP("player")
+
+		-- Calculate XP gained considering level-ups
+		local gainedXP = currentXP - customXPStart
+		if gainedXP < 0 then  -- Level-up detected (XP reset)
+			local maxXP = UnitXPMax("player")
+			gainedXP = (maxXP - customXPStart) + currentXP  -- Carry over XP gained before reset
+		end
+
+		customXPAccumulated = customXPAccumulated + gainedXP
+		customXPStart = currentXP  -- Update tracking start to prevent double-counting
+
+		customXPText:SetText("XP Gained: " .. customXPAccumulated)
+	end
+end
+
+local function ResetCustomXPTracking()
+	customXPText:Hide()
+	customXPTimerText:Hide()
+	trackingXP = false
+
+	if customXPTimer then
+		customXPTimer:Cancel()
+		customXPTimer = nil
+	end
+
+	AdjustFrameSize()
+end
+
 local function perXPiteration(xpChange, xpRemaining)
 	return xpChange > 0 and math.ceil(xpRemaining / xpChange) or 0
 end
@@ -142,6 +242,11 @@ local function UpdateXP()
 	local xpPercent = maxXP > 0 and math.floor((currentXP / maxXP) * 100) or 0
 	local xpRemaining = maxXP - currentXP
 	local restedXP = GetXPExhaustion() or 0
+
+	if trackingXP then
+		local gainedXP = currentXP - customXPStart
+		customXPText:SetText("XP Gained: " .. gainedXP)
+	end
 
 	if currentXP > lastKnownXP then
 		if lastKnownXP == 0 then
@@ -347,6 +452,7 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 		end
 	elseif event == "PLAYER_XP_UPDATE" then
 		UpdateXP()
+		UpdateCustomXPTracking()
 	elseif event == "PLAYER_FLAGS_CHANGED" then
 		GetPVPStatus()
 	elseif event == "PLAYER_EQUIPMENT_CHANGED" then
@@ -392,7 +498,10 @@ xpFrame:EnableMouse(true)
 xpFrame:SetScript("OnMouseDown", function(self, button)
 	if button == "LeftButton" then
 		self:StartMoving()
+	elseif button == "MiddleButton" then
+		ToggleCustomXPTracking()
 	elseif button == "RightButton" then
+		ResetCustomXPTracking()
 		self:ClearAllPoints()
 		self:SetPoint("TOPLEFT")
 	end
