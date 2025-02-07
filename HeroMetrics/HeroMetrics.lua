@@ -65,6 +65,10 @@ local customXPStart = 0
 local customXPStartTime = 0
 local customXPTimer = nil
 
+local function IsMaxLevel()
+    return UnitLevel("player") == GetMaxPlayerLevel()
+end
+
 local function AdjustFrameSize()
 	local textWidth = math.max(
 		xpText:GetStringWidth(),
@@ -170,10 +174,20 @@ local function ToggleCustomXPTracking()
 		customXPAccumulated = 0
 		customXPStartTime = GetTime()
 		trackingXP = true
-		customXPText:SetText("Tracking XP: 0")
-		customXPText:Show()
-		customXPTimerText:SetText("Time: 00:00:00")
-		customXPTimerText:Show()
+
+		if IsMaxLevel() then
+			customXPText:SetText("Timer Start")
+			customXPText:Show()
+
+			customXPTimerText:SetText("00:00:00")
+			customXPTimerText:Show()
+		else
+			customXPText:SetText("Tracking XP: 0")
+			customXPText:Show()
+
+			customXPTimerText:SetText("Time: 00:00:00")
+			customXPTimerText:Show()
+		end
 
 		-- Start timer
 		if customXPTimer then
@@ -181,7 +195,11 @@ local function ToggleCustomXPTracking()
 		end
 		customXPTimer = C_Timer.NewTicker(1, function()
 			local elapsed = GetTime() - customXPStartTime
-			customXPTimerText:SetText("Time: " .. FormatTime(elapsed))
+			if IsMaxLevel() then
+				customXPTimerText:SetText(FormatTime(elapsed))
+			else
+				customXPTimerText:SetText("Time: " .. FormatTime(elapsed))
+			end
 		end)
 
 		AdjustFrameSize()
@@ -194,13 +212,20 @@ local function ToggleCustomXPTracking()
 			customXPTimer = nil
 		end
 
-		customXPText:SetText("XP Gained: " .. customXPAccumulated)
+		if IsMaxLevel() then
+			customXPText:SetText("Timer Stop")
+			customXPText:Show()
+		else
+			customXPText:SetText("XP Gained: " .. customXPAccumulated)
+			customXPText:Show()
+		end
+
 		AdjustFrameSize()
 	end
 end
 
 local function UpdateCustomXPTracking()
-	if trackingXP then
+	if trackingXP and not IsMaxLevel() then
 		local currentXP = UnitXP("player")
 
 		-- Calculate XP gained considering level-ups
@@ -453,6 +478,12 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 	elseif event == "PLAYER_XP_UPDATE" then
 		UpdateXP()
 		UpdateCustomXPTracking()
+	elseif event == "PLAYER_LEVEL_UP" then
+		if IsMaxLevel() and trackingXP then
+			customXPText:Hide()
+			customXPTimerText:Show()
+			AdjustFrameSize()
+		end
 	elseif event == "PLAYER_FLAGS_CHANGED" then
 		GetPVPStatus()
 	elseif event == "PLAYER_EQUIPMENT_CHANGED" then
@@ -472,6 +503,7 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 end)
 xpFrame:RegisterEvent("PLAYER_LOGIN")
 xpFrame:RegisterEvent("PLAYER_XP_UPDATE")
+xpFrame:RegisterEvent("PLAYER_LEVEL_UP")
 xpFrame:RegisterEvent("PLAYER_LOGOUT")
 xpFrame:RegisterEvent("PLAYER_FLAGS_CHANGED")
 xpFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
