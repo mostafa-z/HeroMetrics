@@ -206,6 +206,10 @@ local function ToggleCustomXPTracking()
 	else
 		trackingXP = false
 
+		local currentXP = UnitXP("player")
+		local maxXP = UnitXPMax("player")
+		local xpRemaining = maxXP - currentXP
+
 		-- Stop timer
 		if customXPTimer then
 			customXPTimer:Cancel()
@@ -215,9 +219,10 @@ local function ToggleCustomXPTracking()
 		if IsMaxLevel() then
 			customXPText:SetText("Timer Stop")
 			customXPText:Show()
+		elseif customXPAccumulated > 0 then
+			customXPText:SetText(string.format("XP Gained: %d - |cff00ffff%d|r", customXPAccumulated, math.ceil(xpRemaining / customXPAccumulated)))
 		else
-			customXPText:SetText("XP Gained: " .. customXPAccumulated)
-			customXPText:Show()
+			customXPText:SetText("No XP Gained")
 		end
 
 		AdjustFrameSize()
@@ -238,7 +243,7 @@ local function UpdateCustomXPTracking()
 		customXPAccumulated = customXPAccumulated + gainedXP
 		customXPStart = currentXP  -- Update tracking start to prevent double-counting
 
-		customXPText:SetText("XP Gained: " .. customXPAccumulated)
+		customXPText:SetText("XP Gaining: " .. customXPAccumulated)
 	end
 end
 
