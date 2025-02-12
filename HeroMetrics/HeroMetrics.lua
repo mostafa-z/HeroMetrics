@@ -373,10 +373,23 @@ local function FormatGold(copper)
 end
 
 local function GetCurrencyText()
-	local gold = math.floor(GetMoney() / 10000)
-	local silver = math.floor((GetMoney() % 10000) / 100)
-	local copper = GetMoney() % 100
-	return string.format("• Gold: %d, Silver: %d, Copper: %d", gold, silver, copper)
+	local currentGold = GetMoney()
+	local gold = math.floor(currentGold / 10000)
+	local silver = math.floor((currentGold % 10000) / 100)
+	local copper = currentGold % 100
+
+	-- Determine color for gold
+	local goldChange = currentGold - startGold
+	local color
+	if goldChange > 0 then
+		color = "|cff00ff00"
+	elseif goldChange < 0 then
+		color = "|cffff0000"
+	else
+		color = "|cffffffff"
+	end
+
+	return string.format("• Gold: %s%d, Silver: %d, Copper: %d|r", color, gold, silver, copper)
 end
 
 local function GetSessionGoldGained()
