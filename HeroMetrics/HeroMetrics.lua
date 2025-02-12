@@ -66,7 +66,7 @@ local customXPStartTime = 0
 local customXPTimer = nil
 
 local function IsMaxLevel()
-    return UnitLevel("player") == GetMaxPlayerLevel()
+	return UnitLevel("player") == GetMaxPlayerLevel()
 end
 
 local function AdjustFrameSize()
@@ -244,6 +244,12 @@ local function UpdateCustomXPTracking()
 		customXPStart = currentXP  -- Update tracking start to prevent double-counting
 
 		customXPText:SetText("XP Gaining: " .. customXPAccumulated)
+	elseif trackingXP and IsMaxLevel() then
+		trackingXP = false
+
+		customXPText:Hide()
+		customXPTimerText:Show()
+		AdjustFrameSize()
 	end
 end
 
@@ -272,11 +278,6 @@ local function UpdateXP()
 	local xpPercent = maxXP > 0 and math.floor((currentXP / maxXP) * 100) or 0
 	local xpRemaining = maxXP - currentXP
 	local restedXP = GetXPExhaustion() or 0
-
-	if trackingXP then
-		local gainedXP = currentXP - customXPStart
-		customXPText:SetText("XP Gained: " .. gainedXP)
-	end
 
 	if currentXP > lastKnownXP then
 		if lastKnownXP == 0 then
@@ -488,6 +489,16 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 			customXPText:Hide()
 			customXPTimerText:Show()
 			AdjustFrameSize()
+
+			if delayTimer then
+				delayTimer:Cancel()
+			end
+
+			delayTimer = C_Timer.NewTimer(0.1, function()
+				if not IsMaxLevel() then
+					UpdateCustomXPTracking()
+				end
+			end)
 		end
 	elseif event == "PLAYER_FLAGS_CHANGED" then
 		GetPVPStatus()
