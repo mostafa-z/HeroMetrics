@@ -65,6 +65,10 @@ local customXPStart = 0
 local customXPStartTime = 0
 local customXPTimer = nil
 
+local lowHealthThreshold = 0.5  -- 50%
+local criticalHealthThreshold = 0.3  -- 30%
+local deadThreshold = 0.01 -- 1%
+
 local function IsMaxLevel()
 	return UnitLevel("player") == GetMaxPlayerLevel()
 end
@@ -136,6 +140,24 @@ local function CheckUptimeNotification()
 		lastNotificationTime = uptime
 		ShowNotificationMessage("Uptime Alert: " .. FormatTime(uptime), 5, 48, 0, 200)
 		PlaySound(SOUNDKIT.READY_CHECK, "Master")
+	end
+end
+
+local function UpdateHealthAlert()
+	local health = UnitHealth("player")
+	local maxHealth = UnitHealthMax("player")
+	local healthPercent = health / maxHealth
+
+	if healthPercent <= deadThreshold then
+		notificationText:Hide()
+	elseif healthPercent <= criticalHealthThreshold then
+		ShowNotificationMessage("Critical Health!", 3, 24, 0, 0)
+		notificationText:SetTextColor(1, 0, 0)  -- Red for critical
+	elseif healthPercent <= lowHealthThreshold then
+		ShowNotificationMessage("Low Health!", 3, 24, 0, 0)
+		notificationText:SetTextColor(1, 0.5, 0)  -- Orange for low health
+	else
+		notificationText:Hide()
 	end
 end
 
@@ -537,13 +559,16 @@ xpFrame:RegisterEvent("PLAYER_LOGOUT")
 xpFrame:RegisterEvent("PLAYER_FLAGS_CHANGED")
 xpFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 
-local mailFrame = CreateFrame("Frame")
-mailFrame:RegisterEvent("UPDATE_PENDING_MAIL")
-mailFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+local eventFrame = CreateFrame("Frame")
+eventFrame:RegisterEvent("UPDATE_PENDING_MAIL")
+eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+eventFrame:RegisterUnitEvent("UNIT_HEALTH", "player")
 
-mailFrame:SetScript("OnEvent", function(self, event)
+eventFrame:SetScript("OnEvent", function(self, event, unit)
 	if event == "UPDATE_PENDING_MAIL" or event == "PLAYER_ENTERING_WORLD" then
-		NotifyNewMail()
+		C_Timer.After(1, NotifyNewMail)
+	elseif event == "UNIT_HEALTH" and unit == "player" then
+		UpdateHealthAlert()
 	end
 end)
 
