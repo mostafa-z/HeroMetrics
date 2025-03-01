@@ -129,6 +129,7 @@ end
 local function NotifyNewMail()
 	if HasNewMail() then
 		ShowNotificationMessage("You Have New Mail!", 10, 36, 0, 200) -- Customize as needed: message, duration, font size, xOffset, yOffset
+		notificationText:SetTextColor(1, 1, 0) -- Yellow
 		PlaySound(SOUNDKIT.PVP_THROUGH_QUEUE, "Master")
 	end
 end
@@ -139,6 +140,7 @@ local function CheckUptimeNotification()
 	if uptime >= lastNotificationTime + 3600 then
 		lastNotificationTime = uptime
 		ShowNotificationMessage("Uptime Alert: " .. FormatTime(uptime), 5, 48, 0, 200)
+		notificationText:SetTextColor(1, 1, 0) -- Yellow
 		PlaySound(SOUNDKIT.READY_CHECK, "Master")
 	end
 end
