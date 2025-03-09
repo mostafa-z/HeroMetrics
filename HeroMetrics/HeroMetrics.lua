@@ -66,6 +66,8 @@ HeroMetricsDB.userInteract = HeroMetricsDB.userInteract or false
 local customXPStartTime = 0
 local customXPTimer = nil
 
+local goldNotified = false
+
 local lowHealthThreshold = 0.5  -- 50%
 local criticalHealthThreshold = 0.3  -- 30%
 local deadThreshold = 0.01 -- 1%
@@ -144,6 +146,23 @@ local function CheckUptimeNotification()
 		notificationText:SetTextColor(1, 1, 0) -- Yellow
 		PlaySound(SOUNDKIT.READY_CHECK, "Master")
 	end
+end
+
+local function CheckGoldNotification()
+    if goldNotified then return end  -- Prevent duplicate notifications
+
+    local goldThreshold = 5000
+    local gold = GetMoney() / 10000
+
+    if gold > goldThreshold then
+        local goldMessage = string.format("|cffffd700[RICH ALERT]|r |cff00ff00You have %d gold!|r", gold)
+
+        print(goldMessage)
+
+        RaidNotice_AddMessage(RaidWarningFrame, goldMessage, ChatTypeInfo["RAID_WARNING"])
+
+        goldNotified = true
+    end
 end
 
 local function UpdateHealthAlert()
@@ -610,6 +629,7 @@ eventFrame:RegisterUnitEvent("UNIT_HEALTH", "player")
 eventFrame:SetScript("OnEvent", function(self, event, unit)
 	if event == "UPDATE_PENDING_MAIL" or event == "PLAYER_ENTERING_WORLD" then
 		C_Timer.After(1, NotifyNewMail)
+		C_Timer.After(1, CheckGoldNotification)
 	elseif event == "UNIT_HEALTH" and unit == "player" then
 		UpdateHealthAlert()
 	end
