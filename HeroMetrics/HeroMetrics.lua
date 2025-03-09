@@ -61,6 +61,7 @@ local lastNotificationTime = 0
 
 local trackingXP = false
 local customXPStart = 0
+HeroMetricsDB.userInteract = HeroMetricsDB.userInteract or false
 
 local customXPStartTime = 0
 local customXPTimer = nil
@@ -174,6 +175,10 @@ local function SaveProgress()
 	HeroMetricsDB[characterKey].previousXPChange = previousXPChange
 	HeroMetricsDB[characterKey].iterationsNeeded = iterationsNeeded
 	HeroMetricsDB[characterKey].lastKnownXP = lastKnownXP
+
+	-- Save custom XP tracking state
+	HeroMetricsDB[characterKey].customXPAccumulated = customXPAccumulated
+	HeroMetricsDB[characterKey].userInteract = userInteract
 end
 
 local function LoadProgress()
@@ -184,20 +189,36 @@ local function LoadProgress()
 		previousXPChange = data.previousXPChange or 0
 		iterationsNeeded = data.iterationsNeeded or 0
 		lastKnownXP = data.lastKnownXP
+
+		-- Load custom XP tracking state
+		customXPAccumulated = data.customXPAccumulated or 0
+		userInteract = data and data.userInteract or false
 	else
 		lastXPChange = 0
 		previousXPChange = 0
 		iterationsNeeded = 0
 		lastKnownXP = lastKnownXP
+
+		customXPAccumulated = 0
+		userInteract = false
 	end
 end
 
 local function ToggleCustomXPTracking()
+	local characterKey = GetCharacterKey()
+
 	if not trackingXP then
 		customXPStart = UnitXP("player")
 		customXPAccumulated = 0
 		customXPStartTime = GetTime()
 		trackingXP = true
+
+		if not HeroMetricsDB[characterKey] then
+			HeroMetricsDB[characterKey] = {}
+		end
+
+		-- Restore last saved XP if available
+		customXPAccumulated = HeroMetricsDB[characterKey].customXPAccumulated or 0
 
 		if IsMaxLevel() then
 			customXPText:SetText("Timer Start")
@@ -206,7 +227,12 @@ local function ToggleCustomXPTracking()
 			customXPTimerText:SetText("00:00:00")
 			customXPTimerText:Show()
 		else
-			customXPText:SetText("Tracking XP: 0")
+			if HeroMetricsDB[characterKey].userInteract then
+				customXPText:SetText("Tracking XP: 0")
+				HeroMetricsDB[characterKey].userInteract = false
+			else
+				customXPText:SetText("Tracking XP: " .. customXPAccumulated)
+			end
 			customXPText:Show()
 
 			customXPTimerText:SetText("Time: 00:00:00")
@@ -249,6 +275,14 @@ local function ToggleCustomXPTracking()
 			customXPText:SetText("No XP Gained")
 		end
 
+		-- Reset customXPAccumulated after displaying the result
+		if customXPAccumulated > 0 then
+			-- Final progress result displayed, reset after completion
+			HeroMetricsDB[characterKey].customXPAccumulated = 0
+		end
+
+		HeroMetricsDB[characterKey].userInteract = true
+
 		AdjustFrameSize()
 	end
 end
@@ -281,6 +315,13 @@ local function ResetCustomXPTracking()
 	customXPText:Hide()
 	customXPTimerText:Hide()
 	trackingXP = false
+	customXPAccumulated = 0
+
+	local characterKey = GetCharacterKey()
+	if HeroMetricsDB[characterKey] then
+		HeroMetricsDB[characterKey].customXPAccumulated = 0
+		HeroMetricsDB[characterKey].trackingXP = false
+	end
 
 	if customXPTimer then
 		customXPTimer:Cancel()
