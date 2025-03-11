@@ -59,6 +59,10 @@ local sideSpacing = 10
 local addonStartTime = GetTime()
 local lastNotificationTime = 0
 
+local lastLevelTime = lastLevelTime or 0
+local iterationsPassedCurrent = 0
+local iterationsPassedLast = 0
+
 local trackingXP = false
 local customXPStart = 0
 HeroMetricsDB.userInteract = HeroMetricsDB.userInteract or false
@@ -371,6 +375,8 @@ local function UpdateXP()
 		lastXPChange = currentXP - lastKnownXP
 		iterationsNeeded = perXPiteration(lastXPChange, xpRemaining)
 
+		iterationsPassedCurrent = iterationsPassedCurrent + 1
+
 		SaveProgress()
 	end
 
@@ -414,6 +420,63 @@ local function UpdateXP()
 	lastKnownXP = currentXP
 	
 	AdjustFrameSize()
+end
+
+local function ShowLevelUpStats()
+    local level = UnitLevel("player") + 1
+
+    lastLevelTimeSpent = GetTime() - startTime
+    startTime = GetTime() -- Reset for next level
+
+    iterationsPassedLast = iterationsPassedLast or 0  -- Ensure it's not nil
+    local iterationDifference = iterationsPassedCurrent - iterationsPassedLast
+
+    iterationsPassedLast = iterationsPassedCurrent
+    iterationsPassedCurrent = 0  -- Reset for next level
+
+    local timeSpent = math.floor(lastLevelTimeSpent / 60)  -- Convert to minutes
+	local timeSpentSeconds = lastLevelTimeSpent % 60  -- Remaining seconds
+    local timeDifferencePercent = lastLevelTime > 0 and math.floor(((lastLevelTimeSpent - lastLevelTime) / lastLevelTime) * 100) or 0
+
+    print("|cffffd700=== Level Up Report! ===|r")
+    print(string.format("|cff00ff00Level:|r |cffffff00%d|r", level))
+
+	if timeSpent > 0 then
+		print(string.format("|cff00ff00Time Spent:|r |cffffff00%d min %d sec|r", timeSpent, timeSpentSeconds))
+	else
+		print(string.format("|cff00ff00Time Spent:|r |cffffff00%d sec|r", timeSpentSeconds))
+	end
+
+    --print(string.format("|cff00ff00Time Spent:|r |cffffff00%d min|r", timeSpent))
+    print(string.format("|cff00ffffTime Difference:|r |cffffff00%d%%|r", timeDifferencePercent))
+    print(string.format("|cff00ffffIterations Passed:|r |cffffff00%d|r", iterationsPassedLast))
+    print(string.format("|cff00ffffIteration Difference:|r |cffffff00%d|r", iterationDifference))
+
+	RaidWarningFrame:ClearAllPoints()
+	RaidWarningFrame:SetPoint("TOP", UIParent, "TOP", 0, -200)
+
+    -- Delayed Raid Messages
+	C_Timer.After(6, function()
+		local message = ""
+		if timeSpent > 0 then
+			message = string.format("|cff00ff00Time Spent:|r |cffffff00%d min %d sec|r", timeSpent, timeSpentSeconds)
+		else
+			message = string.format("|cff00ff00Time Spent:|r |cffffff00%d sec|r", timeSpentSeconds)
+		end
+
+		RaidNotice_AddMessage(RaidBossEmoteFrame, message, ChatTypeInfo["RAID_WARNING"])
+	end)
+    C_Timer.After(9, function()
+        RaidNotice_AddMessage(RaidBossEmoteFrame, string.format("|cff00ffffTime Difference:|r |cffffff00%d%%|r", timeDifferencePercent), ChatTypeInfo["RAID_WARNING"])
+    end)
+    C_Timer.After(12, function()
+        RaidNotice_AddMessage(RaidBossEmoteFrame, string.format("|cff00ff00Iterations Passed:|r |cffffff00%d|r", iterationsPassedLast), ChatTypeInfo["RAID_WARNING"])
+    end)
+    C_Timer.After(15, function()
+        RaidNotice_AddMessage(RaidBossEmoteFrame, string.format("|cff00ffffIteration Difference:|r |cffffff00%d|r", iterationDifference), ChatTypeInfo["RAID_WARNING"])
+    end)
+
+    lastLevelTime = lastLevelTimeSpent
 end
 
 local function GetPVPStatus()
@@ -582,6 +645,8 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 		UpdateXP()
 		UpdateCustomXPTracking()
 	elseif event == "PLAYER_LEVEL_UP" then
+		ShowLevelUpStats()
+
 		if IsMaxLevel() and trackingXP then
 			customXPText:Hide()
 			customXPTimerText:Show()
