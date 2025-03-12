@@ -1,3 +1,5 @@
+-- /console scriptErrors 1
+
 local addonName, HeroMetrics = ...
 local xpFrame = CreateFrame("Frame", "HeroMetrics", UIParent, "BackdropTemplate")
 
@@ -422,11 +424,62 @@ local function UpdateXP()
 	AdjustFrameSize()
 end
 
+local function SaveLevelUpData(level, timeSpent, zone)
+    local characterKey = GetCharacterKey()
+    if type(HeroMetricsDB[characterKey]) ~= "table" then
+        HeroMetricsDB[characterKey] = {}  -- Ensure it's always a table
+    end
+    HeroMetricsDB[characterKey][level] = {
+        ["time_to_level"] = timeSpent,
+        ["zone"] = zone
+    }
+end
+
+local function GetLevelUpRank(level, timeSpent)
+    local times = {}
+
+    -- Collect all times from other characters
+	for char, data in pairs(HeroMetricsDB) do
+		if type(data) == "table" and data[level] and type(data[level]) == "table" and data[level].time_to_level then
+			table.insert(times, data[level].time_to_level)
+		end
+	end
+
+    -- Sort times (fastest first)
+    table.sort(times)
+
+    -- Find the rank of the current time
+    local rank = 1
+	local nextTime = nil  -- This will hold the next higher time if available
+
+    for i, t in ipairs(times) do
+        if timeSpent > t then
+            rank = i + 1
+			nextTime = t  -- Update nextTime to the current time
+        else
+            break
+        end
+    end
+
+    local rankTimeDifference = nil
+    if nextTime then
+        rankTimeDifference = nextTime - timeSpent
+    end
+
+    -- Format rank text
+    local total = #times
+    return rank, total, rankTimeDifference
+end
+
+
 local function ShowLevelUpStats()
-    local level = UnitLevel("player") + 1
+    local level = UnitLevel("player")
+	local zone = GetZoneText()
 
     lastLevelTimeSpent = GetTime() - startTime
     startTime = GetTime() -- Reset for next level
+
+	SaveLevelUpData(level, lastLevelTimeSpent, zone)
 
     iterationsPassedLast = iterationsPassedLast or 0  -- Ensure it's not nil
     local iterationDifference = iterationsPassedCurrent - iterationsPassedLast
@@ -438,8 +491,10 @@ local function ShowLevelUpStats()
 	local timeSpentSeconds = lastLevelTimeSpent % 60  -- Remaining seconds
     local timeDifferencePercent = lastLevelTime > 0 and math.floor(((lastLevelTimeSpent - lastLevelTime) / lastLevelTime) * 100) or 0
 
+	local rankText, rankTotal, rankTimeDifference = GetLevelUpRank(level, lastLevelTimeSpent)
+
     print("|cffffd700=== Level Up Report! ===|r")
-    print(string.format("|cff00ff00Level:|r |cffffff00%d|r", level))
+    print(string.format("|cff00ff00Level:|r |cffffff00%d|r", level + 1))
 
 	if timeSpent > 0 then
 		print(string.format("|cff00ff00Time Spent:|r |cffffff00%d min %d sec|r", timeSpent, timeSpentSeconds))
@@ -451,6 +506,17 @@ local function ShowLevelUpStats()
     print(string.format("|cff00ffffTime Difference:|r |cffffff00%d%%|r", timeDifferencePercent))
     print(string.format("|cff00ffffIterations Passed:|r |cffffff00%d|r", iterationsPassedLast))
     print(string.format("|cff00ffffIteration Difference:|r |cffffff00%d|r", iterationDifference))
+
+	-- Prepare the output string for the player's current rank
+	local rankMessage = string.format("|cff00ffffRank:|r |cffffff00%d/%d|r", rankText, rankTotal)
+
+	-- Check if rankTimeDifference is valid and append it to the message if it's not nil
+	if rankTimeDifference then
+		rankMessage = rankMessage .. string.format(" (Need to improve by |cffff0000%.2f|r seconds)", rankTimeDifference)
+	end
+
+	-- Print the rank message
+	print(rankMessage)
 
 	RaidWarningFrame:ClearAllPoints()
 	RaidWarningFrame:SetPoint("TOP", UIParent, "TOP", 0, -200)
@@ -475,6 +541,16 @@ local function ShowLevelUpStats()
     C_Timer.After(15, function()
         RaidNotice_AddMessage(RaidBossEmoteFrame, string.format("|cff00ffffIteration Difference:|r |cffffff00%d|r", iterationDifference), ChatTypeInfo["RAID_WARNING"])
     end)
+
+	C_Timer.After(18, function()
+		-- Prepare the message for the raid warning, using the same logic as above
+		local raidWarningMessage = string.format("|cff00ff00Rank:|r |cffffff00%d/%d|r", rankText, rankTotal)
+		if rankTimeDifference then
+			raidWarningMessage = raidWarningMessage .. string.format(" (Need to improve by |cffff0000%.2f|r seconds)", rankTimeDifference)
+		end
+
+		RaidNotice_AddMessage(RaidBossEmoteFrame, raidWarningMessage, ChatTypeInfo["RAID_WARNING"])
+	end)
 
     lastLevelTime = lastLevelTimeSpent
 end
