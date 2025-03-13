@@ -45,8 +45,48 @@ notificationText:SetPoint("CENTER", 0, 0)
 notificationText:SetTextColor(1, 1, 0)  --yellow
 notificationText:Hide()
 
--- Global saved variable for all characters
-HeroMetricsDB = HeroMetricsDB or {}
+-- XP Progress Bar
+local xpProgressBar = CreateFrame("Frame", "HeroMetricsXPBar", UIParent, "BackdropTemplate")
+
+xpProgressBar:SetSize(200, 20)
+xpProgressBar:SetPoint("TOP", xpFrame, "BOTTOM", 0, -10)
+xpProgressBar:SetBackdrop({
+    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 12,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+})
+xpProgressBar:SetBackdropColor(0, 0, 0, 0.8)
+
+local function DBinit()
+	HeroMetricsDB = HeroMetricsDB or {}  -- Ensure the database exists
+	HeroMetricsDB.xpBarEnabled = HeroMetricsDB.xpBarEnabled or false  -- Default to false if not set
+	HeroMetricsDB.userInteract = HeroMetricsDB.userInteract or false
+
+	if HeroMetricsDB.xpBarEnabled then
+		xpProgressBar:Show()
+	else
+		xpProgressBar:Hide()
+	end
+end
+
+local xpFill = xpProgressBar:CreateTexture(nil, "OVERLAY")
+xpFill:SetTexture("Interface/Tooltips/UI-Tooltip-Background")
+xpFill:SetPoint("LEFT", xpProgressBar, "LEFT", 3, 0)
+xpFill:SetHeight(14)
+xpFill:SetVertexColor(38/255, 100/255, 245/255, 1) -- HEX #2664F5 converted to RGB
+
+local xpPredictFill = xpProgressBar:CreateTexture(nil, "OVERLAY")
+xpPredictFill:SetTexture("Interface/Tooltips/UI-Tooltip-Background")
+xpPredictFill:SetPoint("LEFT", xpFill, "RIGHT", 0, 0)
+xpPredictFill:SetHeight(14)
+xpPredictFill:SetVertexColor(245/255, 183/255, 38/255, 1) -- Solid orange for predicted XP
+
+local xpOverflowIndicator = xpProgressBar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+xpOverflowIndicator:SetPoint("RIGHT", xpProgressBar, "RIGHT", 10, 0)
+xpOverflowIndicator:SetText("+")
+xpOverflowIndicator:SetTextColor(245/255, 183/255, 38/255, 1) -- Orange color like prediction XP
+xpOverflowIndicator:Hide() -- Hidden by default
 
 local lastXP = 0
 local startTime = GetTime()
@@ -67,7 +107,6 @@ local iterationsPassedLast = 0
 
 local trackingXP = false
 local customXPStart = 0
-HeroMetricsDB.userInteract = HeroMetricsDB.userInteract or false
 
 local customXPStartTime = 0
 local customXPTimer = nil
@@ -103,6 +142,10 @@ local function AdjustFrameSize()
 
 	if customXPTimerText:IsShown() then
 		textHeight = textHeight + customXPTimerText:GetStringHeight() + 5
+	end
+
+	if xpProgressBar:IsShown() then
+		xpProgressBar:SetWidth(textWidth)
 	end
 
 	textHeight = textHeight + 60
@@ -204,6 +247,8 @@ local function SaveProgress()
 	-- Save custom XP tracking state
 	HeroMetricsDB[characterKey].customXPAccumulated = customXPAccumulated
 	HeroMetricsDB[characterKey].userInteract = userInteract
+
+	HeroMetricsDB[characterKey].xpBarEnabled = xpBarEnabled
 end
 
 local function LoadProgress()
@@ -218,6 +263,8 @@ local function LoadProgress()
 		-- Load custom XP tracking state
 		customXPAccumulated = data.customXPAccumulated or 0
 		userInteract = data and data.userInteract or false
+
+		xpBarEnabled = data and data.xpBarEnabled or false
 	else
 		lastXPChange = 0
 		previousXPChange = 0
@@ -226,6 +273,8 @@ local function LoadProgress()
 
 		customXPAccumulated = 0
 		userInteract = false
+
+		xpBarEnabled = false
 	end
 end
 
@@ -356,6 +405,48 @@ local function ResetCustomXPTracking()
 	AdjustFrameSize()
 end
 
+local function UpdateXPBar()
+    local currentXP = UnitXP("player")
+    local maxXP = UnitXPMax("player")
+    local xpPercent = currentXP / maxXP
+    local predictedXP = lastXPChange > 0 and (lastXPChange / maxXP) or 0
+
+    local barWidth = xpProgressBar:GetWidth() - 7
+
+    -- Ensure the predicted XP bar does not exceed the remaining width
+    local xpFillWidth = barWidth * xpPercent
+    local remainingWidth = barWidth - xpFillWidth
+    local xpPredictWidth = math.min(barWidth * predictedXP, remainingWidth)
+
+    xpFill:SetWidth(xpFillWidth)
+    xpPredictFill:SetWidth(xpPredictWidth)
+    xpPredictFill:SetShown(predictedXP > 0)
+
+    -- Show overflow indicator if predicted XP exceeds remaining space
+    if (barWidth * predictedXP) > remainingWidth then
+        xpOverflowIndicator:Show()
+    else
+        xpOverflowIndicator:Hide()
+    end
+end
+
+local function ToggleXPBar()
+    if IsMaxLevel() then
+        xpProgressBar:Hide()
+        HeroMetricsDB.xpBarEnabled = false
+        return
+    end
+
+    if xpProgressBar:IsShown() then
+        xpProgressBar:Hide()
+		HeroMetricsDB.xpBarEnabled = false
+    else
+        xpProgressBar:Show()
+		HeroMetricsDB.xpBarEnabled = true
+        UpdateXPBar()
+    end
+end
+
 local function perXPiteration(xpChange, xpRemaining)
 	return xpChange > 0 and math.ceil(xpRemaining / xpChange) or 0
 end
@@ -422,6 +513,9 @@ local function UpdateXP()
 	lastKnownXP = currentXP
 	
 	AdjustFrameSize()
+
+    -- Call UpdateXPBar to update the XP bar with the latest values
+    UpdateXPBar()
 end
 
 local function SaveLevelUpData(level, timeSpent, zone)
@@ -710,6 +804,8 @@ end)
 
 xpFrame:SetScript("OnEvent", function(self, event, ...)
 	if event == "PLAYER_LOGIN" then
+		DBinit()
+
 		ResetSession()
 		LoadProgress()
 		UpdateXP()
@@ -719,6 +815,7 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 		end
 	elseif event == "PLAYER_XP_UPDATE" then
 		UpdateXP()
+		UpdateXPBar()
 		UpdateCustomXPTracking()
 	elseif event == "PLAYER_LEVEL_UP" then
 		ShowLevelUpStats()
@@ -795,6 +892,12 @@ xpFrame:SetScript("OnMouseDown", function(self, button)
 		self:ClearAllPoints()
 		self:SetPoint("TOPLEFT")
 	end
+
+    if button == "LeftButton" and IsControlKeyDown() then
+        ToggleXPBar()
+    else
+        self:StartMoving()
+    end
 end)
 xpFrame:SetScript("OnMouseUp", function(self, button)
 	self:StopMovingOrSizing()
