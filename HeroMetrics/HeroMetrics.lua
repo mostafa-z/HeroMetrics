@@ -29,9 +29,14 @@ local uptimeText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 uptimeText:SetFont(uptimeText:GetFont(), 12)
 uptimeText:SetPoint("BOTTOM", xpProgressText, "BOTTOM", 0, -20)
 
+local playtimeText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+playtimeText:SetFont(playtimeText:GetFont(), 12)
+playtimeText:SetTextColor(0.5, 0.5, 1, 0.8) -- Light blue with lower alpha to differentiate from uptime
+playtimeText:SetPoint("BOTTOM", uptimeText, "BOTTOM", 0, -15)
+
 local customXPText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 customXPText:SetFont(customXPText:GetFont(), 14)
-customXPText:SetPoint("BOTTOM", uptimeText, "BOTTOM", 0, -30)
+customXPText:SetPoint("BOTTOM", playtimeText, "BOTTOM", 0, -30)
 customXPText:Hide()
 
 local customXPTimerText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -100,6 +105,7 @@ local sideSpacing = 10
 
 local addonStartTime = GetTime()
 local lastNotificationTime = 0
+local lastPlaytimeUpdate = 0 -- Track last update time
 
 local lastLevelTime = lastLevelTime or 0
 local iterationsPassedCurrent = 0
@@ -127,6 +133,7 @@ local function AdjustFrameSize()
 		iterationText:GetStringWidth(),
 		xpProgressText:GetStringWidth(),
 		uptimeText:GetStringWidth(),
+		playtimeText:GetStringWidth(),
 		(customXPText:IsShown() and customXPText:GetStringWidth() or 0),
 		(customXPTimerText:IsShown() and customXPTimerText:GetStringWidth() or 0)
 	)
@@ -134,7 +141,8 @@ local function AdjustFrameSize()
 	local textHeight = xpText:GetStringHeight() +
 		iterationText:GetStringHeight() +
 		xpProgressText:GetStringHeight() +
-		uptimeText:GetStringHeight()
+		uptimeText:GetStringHeight() +
+		playtimeText:GetStringHeight()
 
 	if customXPText:IsShown() then
 		textHeight = textHeight + customXPText:GetStringHeight() + 5
@@ -230,6 +238,90 @@ local function UpdateHealthAlert()
 	else
 		notificationText:Hide()
 	end
+end
+
+local function GetDateKey()
+    return date("%Y-%m-%d")
+end
+
+local function FormatPlaytime(seconds)
+    if seconds < 60 then
+        return string.format("%d sec", seconds)
+    elseif seconds < 3600 then
+        return string.format("%d min", math.floor(seconds / 60))
+    else
+        local hours = math.floor(seconds / 3600)
+        local minutes = math.floor((seconds % 3600) / 60)
+        return string.format("%d hr %d min", hours, minutes)
+    end
+end
+
+local function GetTodayPlaytime()
+    local dateKey = GetDateKey()
+    local totalTime = HeroMetricsDB.sessionTimes and HeroMetricsDB.sessionTimes[dateKey] and HeroMetricsDB.sessionTimes[dateKey].total or 0
+
+    -- Add real-time session uptime
+    local sessionStartKey = "sessionStart"
+    if HeroMetricsDB.sessionTimes and HeroMetricsDB.sessionTimes[dateKey] and HeroMetricsDB.sessionTimes[dateKey][sessionStartKey] then
+        local sessionStart = HeroMetricsDB.sessionTimes[dateKey][sessionStartKey]
+        totalTime = totalTime + (GetTime() - sessionStart)
+    end
+
+    return FormatPlaytime(totalTime)
+end
+
+local function UpdatePlaytimeDisplay()
+    local totalTime = HeroMetricsDB.sessionTimes and HeroMetricsDB.sessionTimes[GetDateKey()] and HeroMetricsDB.sessionTimes[GetDateKey()].total or 0
+
+    -- Add real-time session uptime
+    local sessionStartKey = "sessionStart"
+    if HeroMetricsDB.sessionTimes and HeroMetricsDB.sessionTimes[GetDateKey()] and HeroMetricsDB.sessionTimes[GetDateKey()][sessionStartKey] then
+        local sessionStart = HeroMetricsDB.sessionTimes[GetDateKey()][sessionStartKey]
+        totalTime = totalTime + (GetTime() - sessionStart)
+    end
+
+    -- Convert to hours
+    local hours = totalTime / 3600
+
+    -- Determine font size and color
+    local fontSize, r, g, b
+    if hours < 1 then
+        fontSize, r, g, b = 12, 0.2, 1, 0.2  -- Green
+    elseif hours < 3 then
+        fontSize, r, g, b = 14, 1, 1, 0  -- Yellow
+    elseif hours < 6 then
+        fontSize, r, g, b = 16, 1, 0.5, 0  -- Orange
+    else
+        fontSize, r, g, b = 18, 1, 0, 0  -- Red
+    end
+
+    -- Apply changes
+    playtimeText:SetFont(playtimeText:GetFont(), fontSize)
+    playtimeText:SetTextColor(r, g, b, 1)
+    playtimeText:SetText("Today's Pt: " .. FormatPlaytime(totalTime))
+end
+
+local function StartSessionTracking()
+    local dateKey = GetDateKey()
+    -- Removed character-specific tracking
+    local sessionStartKey = "sessionStart"
+
+    HeroMetricsDB.sessionTimes = HeroMetricsDB.sessionTimes or {}
+    HeroMetricsDB.sessionTimes[dateKey] = HeroMetricsDB.sessionTimes[dateKey] or {}
+    HeroMetricsDB.sessionTimes[dateKey][sessionStartKey] = GetTime()
+end
+
+local function SaveSessionTime()
+    local dateKey = GetDateKey()
+    -- Removed character-specific tracking
+    local sessionStartKey = "sessionStart"
+
+    if HeroMetricsDB.sessionTimes and HeroMetricsDB.sessionTimes[dateKey] and HeroMetricsDB.sessionTimes[dateKey][sessionStartKey] then
+        local sessionStart = HeroMetricsDB.sessionTimes[dateKey][sessionStartKey]
+        local sessionDuration = GetTime() - sessionStart
+        HeroMetricsDB.sessionTimes[dateKey].total = (HeroMetricsDB.sessionTimes[dateKey].total or 0) + sessionDuration
+        -- No need to remove sessionStart, as it applies to all characters
+    end
 end
 
 local function GetCharacterKey()
@@ -806,6 +898,9 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 	if event == "PLAYER_LOGIN" then
 		DBinit()
 
+        StartSessionTracking()
+        UpdatePlaytimeDisplay()
+
 		ResetSession()
 		LoadProgress()
 		UpdateXP()
@@ -847,6 +942,7 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 		end)
 	elseif event == "PLAYER_LOGOUT" then
 		SaveProgress()
+		SaveSessionTime()
 		if uptimeTicker then
 			uptimeTicker:Cancel()
 		end
@@ -876,6 +972,12 @@ end)
 local function UpdateUptime()
 	local uptime = GetTime() - addonStartTime
 	uptimeText:SetText("Uptime: " .. FormatTime(uptime))
+
+    -- Check if 5 minutes (300 seconds) have passed since the last update
+    if GetTime() - lastPlaytimeUpdate >= 300 then
+        UpdatePlaytimeDisplay()
+        lastPlaytimeUpdate = GetTime() -- Prevent multiple updates
+    end
 end
 
 local uptimeTicker = C_Timer.NewTicker(1, UpdateUptime)
