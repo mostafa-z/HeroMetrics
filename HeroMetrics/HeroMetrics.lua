@@ -857,6 +857,97 @@ local function AddDurabilityToTooltip(tooltip)
 	end
 end
 
+local function GetMinMaxPlaytime()
+    local minTime, maxTime = math.huge, 0  -- Start with extreme values
+    local minDay, maxDay = nil, nil
+
+    -- Loop through recorded days in DB
+    if HeroMetricsDB.sessionTimes then
+        for dateKey, data in pairs(HeroMetricsDB.sessionTimes) do
+            if data.total and data.total > 0 then
+                if data.total < minTime then
+                    minTime = data.total
+                    minDay = dateKey
+                end
+                if data.total > maxTime then
+                    maxTime = data.total
+                    maxDay = dateKey
+                end
+            end
+        end
+    end
+
+    -- Convert to formatted text
+    local minFormatted = (minDay and FormatPlaytime(minTime)) or "N/A"
+    local maxFormatted = (maxDay and FormatPlaytime(maxTime)) or "N/A"
+
+    return minFormatted, maxFormatted, minDay, maxDay
+end
+
+local function AddMinMaxPlaytimeToTooltip(tooltip)
+	local minTime, maxTime, minDay, maxDay = GetMinMaxPlaytime()
+
+	tooltip:AddLine(" ")
+	tooltip:AddLine("Playtime Records:", 1, 1, 1)
+    tooltip:AddLine("• Min Playtime: " .. minTime .. " (" .. (minDay or "N/A") .. ")", 0, 1, 0)
+    tooltip:AddLine("• Max Playtime: " .. maxTime .. " (" .. (maxDay or "N/A") .. ")", 1, 0.5, 0)
+end
+
+local function GetWeeklyAveragePlaytime()
+    local totalPlaytime, daysCounted = 0, 0
+    local currentDate = time()
+
+    if HeroMetricsDB.sessionTimes then
+        for dateKey, data in pairs(HeroMetricsDB.sessionTimes) do
+            local timestamp = time({year = tonumber(dateKey:sub(1, 4)), month = tonumber(dateKey:sub(6, 7)), day = tonumber(dateKey:sub(9, 10))})
+            if currentDate - timestamp <= 7 * 86400 and data.total then
+                totalPlaytime = totalPlaytime + data.total
+                daysCounted = daysCounted + 1
+            end
+        end
+    end
+
+    if daysCounted > 0 then
+        return FormatPlaytime(totalPlaytime / daysCounted)
+    else
+        return "N/A"
+    end
+end
+
+local function AddGetWeeklyAveragePlaytimeToTooltip(tooltip)
+	tooltip:AddLine(" ")
+	tooltip:AddLine("• Weekly Avg: " .. GetWeeklyAveragePlaytime(), 0.5, 0.5, 1)
+end
+
+local function GetPlaytimeRank()
+    local dateKey = GetDateKey()
+    local todayTime = HeroMetricsDB.sessionTimes and HeroMetricsDB.sessionTimes[dateKey] and HeroMetricsDB.sessionTimes[dateKey].total or 0
+    local playtimes = {}
+
+    if HeroMetricsDB.sessionTimes then
+        for _, data in pairs(HeroMetricsDB.sessionTimes) do
+            if data.total then table.insert(playtimes, data.total) end
+        end
+    end
+
+    table.sort(playtimes, function(a, b) return a > b end) -- Sort descending
+    for rank, time in ipairs(playtimes) do
+        if time == todayTime then
+            return rank, #playtimes
+        end
+    end
+    return "N/A", #playtimes
+end
+
+local function AddGetPlaytimeRankToTooltip(tooltip)
+	local rank, totalDays = GetPlaytimeRank()
+
+	tooltip:AddLine(" ")
+	tooltip:AddLine("• Today's Rank: " .. rank .. " / " .. totalDays, 0.8, 0.8, 0.8)
+end
+
+
+
 local function UpdateTooltip(tooltip)
 	-- to set tooltip frame on mouse cursor: ANCHOR_CURSOR
 	tooltip:SetOwner(xpFrame, "ANCHOR_RIGHT")
@@ -872,6 +963,12 @@ local function UpdateTooltip(tooltip)
 	AddItemLevelToTooltip(tooltip)
 
 	AddCurrencyToTooltip(tooltip)
+
+	AddMinMaxPlaytimeToTooltip(tooltip)
+
+	AddGetWeeklyAveragePlaytimeToTooltip(tooltip)
+
+	AddGetPlaytimeRankToTooltip(tooltip)
 
 	AddDurabilityToTooltip(tooltip)
 
