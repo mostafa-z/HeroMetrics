@@ -32,7 +32,7 @@ uptimeText:SetPoint("BOTTOM", xpProgressText, "BOTTOM", 0, -20)
 local playtimeText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 playtimeText:SetFont(playtimeText:GetFont(), 12)
 playtimeText:SetTextColor(0.5, 0.5, 1, 0.8) -- Light blue with lower alpha to differentiate from uptime
-playtimeText:SetPoint("BOTTOM", uptimeText, "BOTTOM", 0, -15)
+playtimeText:SetPoint("TOP", uptimeText, "BOTTOM", 0, -5)
 
 local customXPText = xpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 customXPText:SetFont(customXPText:GetFont(), 14)
@@ -62,18 +62,6 @@ xpProgressBar:SetBackdrop({
     insets = { left = 2, right = 2, top = 2, bottom = 2 }
 })
 xpProgressBar:SetBackdropColor(0, 0, 0, 0.8)
-
-local function DBinit()
-	HeroMetricsDB = HeroMetricsDB or {}  -- Ensure the database exists
-	HeroMetricsDB.xpBarEnabled = HeroMetricsDB.xpBarEnabled or false  -- Default to false if not set
-	HeroMetricsDB.userInteract = HeroMetricsDB.userInteract or false
-
-	if HeroMetricsDB.xpBarEnabled then
-		xpProgressBar:Show()
-	else
-		xpProgressBar:Hide()
-	end
-end
 
 local xpFill = xpProgressBar:CreateTexture(nil, "OVERLAY")
 xpFill:SetTexture("Interface/Tooltips/UI-Tooltip-Background")
@@ -125,6 +113,28 @@ local deadThreshold = 0.01 -- 1%
 
 local function IsMaxLevel()
 	return UnitLevel("player") == GetMaxPlayerLevel()
+end
+
+local function DBinit()
+    HeroMetricsDB = HeroMetricsDB or {}  -- Ensure the database exists
+    HeroMetricsDB.xpBarEnabled = HeroMetricsDB.xpBarEnabled or false  -- Default to false if not set
+    HeroMetricsDB.userInteract = HeroMetricsDB.userInteract or false
+
+    -- Ensure xpProgressBar exists before modifying it
+    if not xpProgressBar then return end
+
+    -- Hide XP bar for max-level characters but don't override DB setting
+    if IsMaxLevel() then
+        xpProgressBar:Hide()
+        return
+    end
+
+    -- Apply saved XP bar state
+    if HeroMetricsDB.xpBarEnabled then
+        xpProgressBar:Show()
+    else
+        xpProgressBar:Hide()
+    end
 end
 
 local function AdjustFrameSize()
@@ -298,7 +308,9 @@ local function UpdatePlaytimeDisplay()
     -- Apply changes
     playtimeText:SetFont(playtimeText:GetFont(), fontSize)
     playtimeText:SetTextColor(r, g, b, 1)
-    playtimeText:SetText("Today's Pt: " .. FormatPlaytime(totalTime))
+    playtimeText:SetText("\nToday:" .. FormatPlaytime(totalTime))
+
+    AdjustFrameSize()
 end
 
 local function StartSessionTracking()
@@ -708,7 +720,7 @@ local function ShowLevelUpStats()
 	RaidWarningFrame:SetPoint("TOP", UIParent, "TOP", 0, -200)
 
     -- Delayed Raid Messages
-	C_Timer.After(6, function()
+	C_Timer.After(5, function()
 		local message = ""
 		if timeSpent > 0 then
 			message = string.format("|cff00ff00Time Spent:|r |cffffff00%d min %d sec|r", timeSpent, timeSpentSeconds)
@@ -718,6 +730,7 @@ local function ShowLevelUpStats()
 
 		RaidNotice_AddMessage(RaidBossEmoteFrame, message, ChatTypeInfo["RAID_WARNING"])
 	end)
+--[[
     C_Timer.After(9, function()
         RaidNotice_AddMessage(RaidBossEmoteFrame, string.format("|cff00ffffTime Difference:|r |cffffff00%d%%|r", timeDifferencePercent), ChatTypeInfo["RAID_WARNING"])
     end)
@@ -727,8 +740,8 @@ local function ShowLevelUpStats()
     C_Timer.After(15, function()
         RaidNotice_AddMessage(RaidBossEmoteFrame, string.format("|cff00ffffIteration Difference:|r |cffffff00%d|r", iterationDifference), ChatTypeInfo["RAID_WARNING"])
     end)
-
-	C_Timer.After(18, function()
+]]
+	C_Timer.After(8, function()
 		-- Prepare the message for the raid warning, using the same logic as above
 		local raidWarningMessage = string.format("|cff00ff00Rank:|r |cffffff00%d/%d|r", rankText, rankTotal)
 		if rankTimeDifference then
