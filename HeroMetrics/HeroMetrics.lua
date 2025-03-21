@@ -81,6 +81,35 @@ xpOverflowIndicator:SetText("+")
 xpOverflowIndicator:SetTextColor(245/255, 183/255, 38/255, 1) -- Orange color like prediction XP
 xpOverflowIndicator:Hide() -- Hidden by default
 
+-- Time Goal Progress Bar
+local timeGoalFrame = CreateFrame("Frame", "HeroMetricsTimeGoal", UIParent, "BackdropTemplate")
+timeGoalFrame:SetSize(200, 20)
+timeGoalFrame:SetPoint("TOP", xpProgressBar, "BOTTOM", 0, -10)
+timeGoalFrame:SetBackdrop({
+    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 12,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+})
+timeGoalFrame:SetBackdropColor(0, 0, 0, 0.8)
+timeGoalFrame:Hide()
+
+local timeGoalFill = timeGoalFrame:CreateTexture(nil, "OVERLAY")
+timeGoalFill:SetTexture("Interface/Tooltips/UI-Tooltip-Background")
+timeGoalFill:SetPoint("LEFT", timeGoalFrame, "LEFT", 3, 0)
+timeGoalFill:SetHeight(14)
+timeGoalFill:SetVertexColor(0, 1, 0, 1) -- Start with green
+
+local timeGoalText = timeGoalFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+timeGoalText:SetPoint("CENTER", timeGoalFrame, "CENTER", 0, 0)
+timeGoalText:SetText("Time Goal: Loading ...")
+
+local timeGoal, timeOver = 0, 0
+local trackingTimeGoal = false
+local elapsedTime = 0
+local sessionStart = nil
+local timeGoalTicker = nil
+
 local lastXP = 0
 local startTime = GetTime()
 local lastXPChange = 0
@@ -171,6 +200,21 @@ local function AdjustFrameSize()
 end
 
 AdjustFrameSize()
+
+local function AdjustTimeGoalFrameSize()
+	local barWidth = xpProgressBar:GetWidth()
+	local textWidth = timeGoalText:GetWidth()
+
+	if textWidth > barWidth then
+		local textWidth = timeGoalText:GetWidth()
+		timeGoalFrame:SetWidth(textWidth + 20)
+	else
+        local barWidth = xpProgressBar:GetWidth()
+        timeGoalFrame:SetWidth(barWidth)
+	end
+end
+
+--AdjustTimeGoalFrameSize()
 
 local function FormatTime(uptime)
 	local hours = math.floor(uptime / 3600)
@@ -549,6 +593,90 @@ local function ToggleXPBar()
 		HeroMetricsDB.xpBarEnabled = true
         UpdateXPBar()
     end
+end
+
+local function SaveTimeGoalProgress()
+    local characterKey = UnitName("player") .. "-" .. GetRealmName()
+    HeroMetricsDB[characterKey] = HeroMetricsDB[characterKey] or {}
+    HeroMetricsDB[characterKey].timeGoal = timeGoal
+    HeroMetricsDB[characterKey].timeOver = timeOver
+    HeroMetricsDB[characterKey].elapsedTime = elapsedTime + (sessionStart and (GetTime() - sessionStart) or 0)
+    HeroMetricsDB[characterKey].trackingTimeGoal = trackingTimeGoal
+end
+
+local function UpdateTimeGoal()
+    if not trackingTimeGoal then return end
+
+    local totalElapsed = elapsedTime + (sessionStart and (GetTime() - sessionStart) or 0)
+    local goalTime = timeGoal * 60
+    local maxTime = (timeGoal + timeOver) * 60
+
+    if totalElapsed > goalTime then
+        timeGoalText:SetText(string.format("Time Goal: %d min - %d min over", timeGoal, math.floor((totalElapsed - goalTime) / 60)))
+    else
+        timeGoalText:SetText(string.format("Time Goal: %d:%02d / %d", math.floor(totalElapsed / 60), totalElapsed % 60, timeGoal))
+    end
+
+    -- Update progress bar
+    local barWidth = timeGoalFrame:GetWidth() - 6
+    local percent = totalElapsed / maxTime
+    timeGoalFill:SetWidth(math.min(barWidth * percent, barWidth))
+
+    -- Color change based on progress
+    if percent < 0.5 then
+        timeGoalFill:SetVertexColor(0, 1, 0, 1) -- Green
+    elseif percent < 0.8 then
+        timeGoalFill:SetVertexColor(1, 1, 0, 1) -- Yellow
+    elseif percent < 0.95 then
+        timeGoalFill:SetVertexColor(1, 0.5, 0, 1) -- Orange
+    else
+        timeGoalFill:SetVertexColor(1, 0, 0, 1) -- Red
+    end
+
+    -- Play warning at goal time
+    if totalElapsed >= goalTime and totalElapsed < (goalTime + 1) then
+        PlaySound(SOUNDKIT.RAID_WARNING)
+        RaidNotice_AddMessage(RaidBossEmoteFrame, "Time Goal Reached!", ChatTypeInfo["RAID_WARNING"])
+    end
+
+    SaveTimeGoalProgress()
+	AdjustTimeGoalFrameSize()
+end
+
+local function StartTimeGoal(goal, over, loadedElapsed)
+    timeGoal = tonumber(goal) or 0
+    timeOver = tonumber(over) or 0
+    elapsedTime = loadedElapsed or 0 -- Restore previous elapsed time
+    sessionStart = GetTime()
+    trackingTimeGoal = true
+    timeGoalFrame:Show()
+
+    if timeGoalTicker then
+        timeGoalTicker:Cancel()
+    end
+    timeGoalTicker = C_Timer.NewTicker(60, SaveTimeGoalProgress) -- Save progress every minute
+    C_Timer.NewTicker(1, UpdateTimeGoal)
+    SaveTimeGoalProgress()
+end
+
+local function LoadTimeGoalProgress()
+    local characterKey = UnitName("player") .. "-" .. GetRealmName()
+    local data = HeroMetricsDB[characterKey]
+    if data and data.trackingTimeGoal then
+        StartTimeGoal(data.timeGoal or 0, data.timeOver or 0, data.elapsedTime or 0)
+    end
+end
+
+local function CancelTimeGoal()
+    trackingTimeGoal = false
+    elapsedTime = elapsedTime + (sessionStart and (GetTime() - sessionStart) or 0)
+    sessionStart = nil
+    timeGoalFrame:Hide()
+    if timeGoalTicker then
+        timeGoalTicker:Cancel()
+        timeGoalTicker = nil
+    end
+    SaveTimeGoalProgress()
 end
 
 local function perXPiteration(xpChange, xpRemaining)
@@ -1011,6 +1139,9 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
         StartSessionTracking()
         UpdatePlaytimeDisplay()
 
+        LoadTimeGoalProgress()
+        sessionStart = GetTime()
+
 		ResetSession()
 		LoadProgress()
 		UpdateXP()
@@ -1053,6 +1184,7 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 	elseif event == "PLAYER_LOGOUT" then
 		SaveProgress()
 		SaveSessionTime()
+		SaveTimeGoalProgress()
 		if uptimeTicker then
 			uptimeTicker:Cancel()
 		end
@@ -1078,6 +1210,23 @@ eventFrame:SetScript("OnEvent", function(self, event, unit)
 		UpdateHealthAlert()
 	end
 end)
+
+SLASH_HEROMETRICSTG1 = "/hmtg"
+SlashCmdList["HEROMETRICSTG"] = function(msg)
+    local goal, over = msg:match("^(%d+)%s*(%d*)$")
+    goal = tonumber(goal)
+    over = tonumber(over) or 0
+
+    if msg:lower() == "cancel" then
+        CancelTimeGoal()
+        print("Time Goal tracking canceled.")
+    elseif goal then
+        StartTimeGoal(goal, over)
+        print("Time Goal set to " .. tostring(goal) .. " minutes. Allowing " .. tostring(over) .. " minutes over.")
+    else
+        print("Usage: /hmtg <minutes> [over time]")
+    end
+end
 
 local function UpdateUptime()
 	local uptime = GetTime() - addonStartTime
