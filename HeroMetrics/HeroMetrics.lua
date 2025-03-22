@@ -1087,7 +1087,35 @@ local function AddGetPlaytimeRankToTooltip(tooltip)
 	tooltip:AddLine("• Today's Rank: " .. rank .. " / " .. totalDays, 0.8, 0.8, 0.8)
 end
 
+local function AddHelpToTooltip(tooltip)
+    tooltip:AddLine(" ") -- Spacer
+    tooltip:AddLine("|cFFFFFF00HeroMetrics|r - Hold |cFFFFA500Shift|r for Help") -- Minimal mode
 
+    -- Check if Shift is being held
+    if IsShiftKeyDown() then
+        tooltip:AddLine(" ")
+        tooltip:AddLine("|cFFFFFF00HeroMetrics Controls:|r") -- Gold title
+
+        tooltip:AddLine("• |cFFFFFFFFReset Pos/Frame:|r |cFFFFA500RClick|r")
+
+        tooltip:AddLine(" ")
+        tooltip:AddLine("|cFF00FF00XP Tracking:|r") -- Green subheader
+        tooltip:AddLine("• |cFFFFFFFFToggle Custom XP Tracking:|r |cFFFFA500MClick|r")
+        tooltip:AddLine("• |cFFFFFFFFReset Custom XP Tracking:|r |cFFFFA500RClick|r")
+        tooltip:AddLine("• |cFFFFFFFFToggle XP Bar:|r |cFFFFA500CTRL + LClick|r")
+
+        tooltip:AddLine(" ")
+        tooltip:AddLine("|cFF00FF00Time Goals:|r") -- Green subheader
+        tooltip:AddLine("• |cFFFFFFFFSet Time Goal:|r |cFFFFA500/hmtg minute over|r")
+        tooltip:AddLine("• |cFFFFFFFFCancel Time Goal:|r |cFFFFA500/hmtg cancel|r")
+
+        tooltip:AddLine(" ")
+        tooltip:AddLine("|cFF00FF00Other Features:|r") -- Green subheader
+        tooltip:AddLine("• |cFFFFFFFFCheck Mail & Gold Notifications:|r |cFFFFA500Auto|r")
+
+        tooltip:AddLine(" ")
+    end
+end
 
 local function UpdateTooltip(tooltip)
 	-- to set tooltip frame on mouse cursor: ANCHOR_CURSOR
@@ -1112,6 +1140,8 @@ local function UpdateTooltip(tooltip)
 	AddGetPlaytimeRankToTooltip(tooltip)
 
 	AddDurabilityToTooltip(tooltip)
+
+	AddHelpToTooltip(tooltip)
 
 	tooltip:Show()
 end
