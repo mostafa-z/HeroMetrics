@@ -1,7 +1,7 @@
 ## Interface: 110000
 ## Title: HeroMetrics
 ## Notes: An epic touch for tracking hero gear and stats
-## Version: 2
+## Version: 3
 ## SavedVariables: HeroMetricsDB
 ## Author: mostafa-z
 HeroMetrics.lua
