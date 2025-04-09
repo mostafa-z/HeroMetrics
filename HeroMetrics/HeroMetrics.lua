@@ -244,6 +244,12 @@ local customXPStart = 0
 local customXPStartTime = 0
 local customXPTimer = nil
 
+-- Tooltip used Var
+local initialItemLevels = {}
+local previousItemLevels = {}
+local sessionStarted = false
+local upgradedItems = {}
+
 local goldNotified = false
 
 local lowHealthThreshold = 0.5  -- 50%
@@ -1085,15 +1091,6 @@ local function GetItemLevelDetails()
 	}
 end
 
-local function AddItemLevelToTooltip(tooltip)
-	local itemLevelDetails = GetItemLevelDetails()
-
-	tooltip:AddLine(" ")
-	tooltip:AddLine(string.format("Current Item Level (Eqp): • %s", itemLevelDetails.avgItemLevelEquipped), 1, 1, 1)
-	tooltip:AddLine(string.format("Current Item Level (PvE): • %s", itemLevelDetails.itemLevel), 1, 1, 1)
-	tooltip:AddLine(string.format("Current Item Level (PvP): • %s", itemLevelDetails.avgItemLevelPvp), 1, 1, 1)
-end
-
 local function GetDurabilityPercentage()
 	local totalDurability = 0
 	local totalMaxDurability = 0
@@ -1254,10 +1251,218 @@ local function AddLevelCountsToTooltip(tooltip)
     end
 end
 
+local function CountItemsByItemLevel()
+    local itemLevelCounts = {}
+    for i = 1, 19 do
+        local itemLink = GetInventoryItemLink("player", i)
+        if itemLink then
+            local itemLevel = select(4, GetItemInfo(itemLink))
+            local itemSlot = select(9, GetItemInfo(itemLink))
+            if itemLevel then
+                if not itemLevelCounts[itemLevel] then
+                    itemLevelCounts[itemLevel] = { count = 0, items = {} }
+                end
+                itemLevelCounts[itemLevel].count = itemLevelCounts[itemLevel].count + 1
+                table.insert(itemLevelCounts[itemLevel].items, { link = itemLink, slot = itemSlot:gsub("INVTYPE_", "") })
+            end
+        end
+    end
+    return itemLevelCounts
+end
+
+local function StoreInitialItemLevels()
+    for i = 1, 19 do
+        local itemLink = GetInventoryItemLink("player", i)
+        if itemLink then
+            local itemName, _, itemQuality, itemLevel, _, _, _, _, itemEquipLoc = GetItemInfo(itemLink)
+            itemLevel = itemLevel or 0
+            local itemColor = itemQuality and ITEM_QUALITY_COLORS[itemQuality] and ITEM_QUALITY_COLORS[itemQuality].hex or "|cffffffff"
+            initialItemLevels[i] = {level = itemLevel, name = itemName, slot = itemEquipLoc, color = itemColor}
+            previousItemLevels[i] = {level = itemLevel, name = itemName, slot = itemEquipLoc, color = itemColor}
+        else
+            initialItemLevels[i] = {level = 0, name = nil, slot = nil, color = "|cffffffff"}
+            previousItemLevels[i] = {level = 0, name = nil, slot = nil, color = "|cffffffff"}
+        end
+    end
+    sessionStarted = true
+end
+
+local function CalculateItemLevelDifference()
+    local totalDifference = 0
+    local numItems = 0
+    local itemChangesDetected = false
+
+    for i = 1, 19 do
+        local itemLink = GetInventoryItemLink("player", i)
+        if itemLink then
+            local itemName, _, itemQuality, currentItemLevel, _, _, _, _, itemEquipLoc = GetItemInfo(itemLink)
+            currentItemLevel = currentItemLevel or 0
+            local itemColor = itemQuality and ITEM_QUALITY_COLORS[itemQuality] and ITEM_QUALITY_COLORS[itemQuality].hex or "|cffffffff"
+            local initialItemLevel = initialItemLevels[i] and initialItemLevels[i].level or 0
+            local previousItemLevel = previousItemLevels[i] and previousItemLevels[i].level or 0
+            local previousItemName = previousItemLevels[i] and previousItemLevels[i].name or "Unknown"
+            local previousItemColor = previousItemLevels[i] and previousItemLevels[i].color or "|cffffffff"
+            local difference = currentItemLevel - initialItemLevel
+
+            if currentItemLevel ~= previousItemLevel or itemName ~= previousItemName then
+                table.insert(upgradedItems, {
+                    slot = itemEquipLoc,
+                    initialName = previousItemName,
+                    initialLevel = previousItemLevel,
+                    initialColor = previousItemColor,
+                    currentName = itemName,
+                    currentLevel = currentItemLevel,
+                    currentColor = itemColor,
+                    difference = currentItemLevel - previousItemLevel
+                })
+                previousItemLevels[i] = {level = currentItemLevel, name = itemName, slot = itemEquipLoc, color = itemColor}
+                itemChangesDetected = true
+            end
+
+            totalDifference = totalDifference + difference
+            numItems = numItems + 1
+        end
+    end
+
+    return totalDifference, numItems, itemChangesDetected
+end
+
+local function AddItemLevelToTooltip(tooltip)
+	if not IsControlKeyDown() then return end
+
+    local itemLevelDetails = GetItemLevelDetails()
+
+    tooltip:AddLine(" ")
+    tooltip:AddLine(string.format("Current Item Level (Eqp): • %s", itemLevelDetails.avgItemLevelEquipped), 1, 1, 1)
+    tooltip:AddLine(string.format("Current Item Level (PvE): • %s", itemLevelDetails.itemLevel), 1, 1, 1)
+    tooltip:AddLine(string.format("Current Item Level (PvP): • %s", itemLevelDetails.avgItemLevelPvp), 1, 1, 1)
+
+    -- Count and list item levels
+    local itemLevelCounts = CountItemsByItemLevel()
+    tooltip:AddLine(" ")
+    tooltip:AddLine("Item Levels:", 0.0, 1.0, 0.0)
+
+    local sortedItemLevels = {}
+    for itemLevel in pairs(itemLevelCounts) do
+        table.insert(sortedItemLevels, itemLevel)
+    end
+    table.sort(sortedItemLevels, function(a, b) return a > b end)
+
+    for _, itemLevel in ipairs(sortedItemLevels) do
+        local count = itemLevelCounts[itemLevel].count
+        local items = itemLevelCounts[itemLevel].items
+        tooltip:AddLine(string.format("  %d: %d items", itemLevel, count), 0.5, 0.5, 1.0)
+        for _, item in ipairs(items) do
+            tooltip:AddLine(string.format("    %s: %s", item.slot, item.link), 0.7, 0.7, 1.0)
+        end
+    end
+
+    -- Predict upgrades
+    local totalItemLevel, numItems = 0, 0
+    local itemDetails, itemsToUpgrade = {}, {}
+
+    for i = 1, 19 do
+        local itemLink = GetInventoryItemLink("player", i)
+        if itemLink then
+            local itemName, _, _, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemLink)
+            local itemLevel = select(4, GetItemInfo(itemLink)) or 0
+            if itemLevel > 1 and itemEquipLoc ~= "INVTYPE_TABARD" and itemEquipLoc ~= "INVTYPE_BODY" then
+                totalItemLevel = totalItemLevel + itemLevel
+                numItems = numItems + 1
+                table.insert(itemDetails, {level = itemLevel, link = itemLink, slot = itemEquipLoc, name = itemName})
+            end
+        end
+    end
+
+    local avgItemLevel = numItems > 0 and (totalItemLevel / numItems) or nil
+
+    if avgItemLevel then
+        local updatedItemLevels = {}
+        for _, item in ipairs(itemDetails) do
+            if item.level < avgItemLevel then
+                table.insert(updatedItemLevels, avgItemLevel)
+                table.insert(itemsToUpgrade, item)
+            else
+                table.insert(updatedItemLevels, item.level)
+            end
+        end
+
+        if #itemsToUpgrade > 0 then
+            local newTotal = 0
+            for _, lvl in ipairs(updatedItemLevels) do newTotal = newTotal + lvl end
+            local predictedItemLevel = math.max(newTotal / #updatedItemLevels, avgItemLevel)
+
+            tooltip:AddLine(" ")
+            tooltip:AddLine("Predicted Item Level if upgraded:", 1, 1, 1)
+            tooltip:AddLine(string.format("• %.2f", predictedItemLevel), 1, 1, 1)
+
+            tooltip:AddLine(" ")
+            tooltip:AddLine("Details:", 1, 1, 1)
+            tooltip:AddLine(string.format("• Target Item Level: %.2f", avgItemLevel), 1, 1, 1)
+            tooltip:AddLine(string.format("• Number of Items to Upgrade: %d", #itemsToUpgrade), 1, 1, 1)
+
+            table.sort(itemsToUpgrade, function(a, b) return a.level > b.level end)
+
+            for _, item in ipairs(itemsToUpgrade) do
+                local slotName = item.slot:gsub("INVTYPE_", ""):gsub("^%l", string.upper)
+                tooltip:AddLine(string.format("  • %s: %s (Current iLvl: %d)", slotName, item.link, item.level), 0.7, 0.7, 1.0)
+            end
+        else
+            tooltip:AddLine(" ")
+            tooltip:AddLine("All items are already at the target item level.", 0, 1, 0)
+        end
+    else
+        tooltip:AddLine(" ")
+        tooltip:AddLine("No valid items found to calculate average item level.", 1, 0, 0)
+    end
+
+    -- Track upgrades since session start
+    if not sessionStarted then StoreInitialItemLevels() end
+    local totalDiff, numItemsDiff, changed = CalculateItemLevelDifference()
+    local avgDiff = numItemsDiff > 0 and (totalDiff / numItemsDiff) or 0
+
+    if totalDiff ~= 0 or changed then
+        tooltip:AddLine(" ")
+        tooltip:AddLine("Session Upgrade Difference:", 1, 1, 1)
+        tooltip:AddLine(string.format("• Total iLvl Increase: %.2f", totalDiff), 1, 1, 1)
+        tooltip:AddLine(string.format("• Average iLvl Increase: %.2f", avgDiff), 1, 1, 1)
+
+        tooltip:AddLine(" ")
+        tooltip:AddLine("Upgraded Items:", 1, 1, 1)
+
+        local displayItems = {}
+        for _, item in ipairs(upgradedItems) do
+            local slotName = item.slot and item.slot:gsub("INVTYPE_", ""):gsub("^%l", string.upper) or "Unknown"
+            table.insert(displayItems, {
+                slot = slotName,
+                initialName = item.initialName,
+                initialLevel = item.initialLevel,
+                initialColor = item.initialColor,
+                currentName = item.currentName,
+                currentLevel = item.currentLevel,
+                currentColor = item.currentColor,
+                difference = item.difference
+            })
+        end
+
+        table.sort(displayItems, function(a, b) return a.currentLevel > b.currentLevel end)
+
+        for _, item in ipairs(displayItems) do
+            tooltip:AddLine(string.format("  • %s: %s%s|r (iLvl: %d) -> %s%s|r (iLvl: %d), Diff: %d",
+                item.slot,
+                item.initialColor, item.initialName or "?", item.initialLevel or 0,
+                item.currentColor, item.currentName or "?", item.currentLevel or 0,
+                item.difference or 0
+            ), 1, 1, 0)
+        end
+    end
+end
+
 local function AddHelpToTooltip(tooltip)
     tooltip:AddLine(" ") -- Spacer
     tooltip:AddLine("|cFFFFFF00HeroMetrics|r - Hold |cFFFFA500Shift|r for Help") -- Minimal mode
     tooltip:AddLine("|cFFFFFF00HeroMetrics|r - Hold |cFFFFA500Alt|r for Warband") -- Minimal mode
+    tooltip:AddLine("|cFFFFFF00HeroMetrics|r - Hold |cFFFFA500Ctrl|r for Item Level Details") -- Minimal mode
 
     -- Check if Shift is being held
     if IsShiftKeyDown() then
@@ -1297,11 +1502,11 @@ local function UpdateTooltip(tooltip)
 
 	tooltip:AddLine(GetZoneNameText(), 1, 1, 1)
 
-	AddItemLevelToTooltip(tooltip)
-
 	AddCurrencyToTooltip(tooltip)
 
 	AddLevelCountsToTooltip(tooltip)
+
+	AddItemLevelToTooltip(tooltip)
 
 	AddMinMaxPlaytimeToTooltip(tooltip)
 
