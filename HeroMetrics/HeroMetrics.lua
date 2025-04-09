@@ -1256,14 +1256,18 @@ local function CountItemsByItemLevel()
     for i = 1, 19 do
         local itemLink = GetInventoryItemLink("player", i)
         if itemLink then
-            local itemLevel = select(4, GetItemInfo(itemLink))
+            local itemLoc = ItemLocation:CreateFromEquipmentSlot(i)
+            local itemLevel = C_Item.DoesItemExist(itemLoc) and C_Item.GetCurrentItemLevel(itemLoc) or 0
             local itemSlot = select(9, GetItemInfo(itemLink))
-            if itemLevel then
+            if itemLevel and itemLevel > 0 then
                 if not itemLevelCounts[itemLevel] then
                     itemLevelCounts[itemLevel] = { count = 0, items = {} }
                 end
                 itemLevelCounts[itemLevel].count = itemLevelCounts[itemLevel].count + 1
-                table.insert(itemLevelCounts[itemLevel].items, { link = itemLink, slot = itemSlot:gsub("INVTYPE_", "") })
+                table.insert(itemLevelCounts[itemLevel].items, {
+                    link = itemLink,
+                    slot = itemSlot and itemSlot:gsub("INVTYPE_", "") or "?"
+                })
             end
         end
     end
@@ -1273,9 +1277,11 @@ end
 local function StoreInitialItemLevels()
     for i = 1, 19 do
         local itemLink = GetInventoryItemLink("player", i)
+        local itemLoc = ItemLocation:CreateFromEquipmentSlot(i)
+        local itemLevel = C_Item.DoesItemExist(itemLoc) and C_Item.GetCurrentItemLevel(itemLoc) or 0
+
         if itemLink then
-            local itemName, _, itemQuality, itemLevel, _, _, _, _, itemEquipLoc = GetItemInfo(itemLink)
-            itemLevel = itemLevel or 0
+            local itemName, _, itemQuality, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemLink)
             local itemColor = itemQuality and ITEM_QUALITY_COLORS[itemQuality] and ITEM_QUALITY_COLORS[itemQuality].hex or "|cffffffff"
             initialItemLevels[i] = {level = itemLevel, name = itemName, slot = itemEquipLoc, color = itemColor}
             previousItemLevels[i] = {level = itemLevel, name = itemName, slot = itemEquipLoc, color = itemColor}
@@ -1294,14 +1300,18 @@ local function CalculateItemLevelDifference()
 
     for i = 1, 19 do
         local itemLink = GetInventoryItemLink("player", i)
+        local itemLoc = ItemLocation:CreateFromEquipmentSlot(i)
+        local currentItemLevel = C_Item.DoesItemExist(itemLoc) and C_Item.GetCurrentItemLevel(itemLoc) or 0
+
         if itemLink then
-            local itemName, _, itemQuality, currentItemLevel, _, _, _, _, itemEquipLoc = GetItemInfo(itemLink)
-            currentItemLevel = currentItemLevel or 0
+            local itemName, _, itemQuality, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemLink)
             local itemColor = itemQuality and ITEM_QUALITY_COLORS[itemQuality] and ITEM_QUALITY_COLORS[itemQuality].hex or "|cffffffff"
+
             local initialItemLevel = initialItemLevels[i] and initialItemLevels[i].level or 0
             local previousItemLevel = previousItemLevels[i] and previousItemLevels[i].level or 0
             local previousItemName = previousItemLevels[i] and previousItemLevels[i].name or "Unknown"
             local previousItemColor = previousItemLevels[i] and previousItemLevels[i].color or "|cffffffff"
+
             local difference = currentItemLevel - initialItemLevel
 
             if currentItemLevel ~= previousItemLevel or itemName ~= previousItemName then
@@ -1315,7 +1325,12 @@ local function CalculateItemLevelDifference()
                     currentColor = itemColor,
                     difference = currentItemLevel - previousItemLevel
                 })
-                previousItemLevels[i] = {level = currentItemLevel, name = itemName, slot = itemEquipLoc, color = itemColor}
+                previousItemLevels[i] = {
+                    level = currentItemLevel,
+                    name = itemName,
+                    slot = itemEquipLoc,
+                    color = itemColor
+                }
                 itemChangesDetected = true
             end
 
@@ -1365,7 +1380,8 @@ local function AddItemLevelToTooltip(tooltip)
         local itemLink = GetInventoryItemLink("player", i)
         if itemLink then
             local itemName, _, _, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemLink)
-            local itemLevel = select(4, GetItemInfo(itemLink)) or 0
+            local itemLoc = ItemLocation:CreateFromEquipmentSlot(i)
+			local itemLevel = C_Item.DoesItemExist(itemLoc) and C_Item.GetCurrentItemLevel(itemLoc) or 0
             if itemLevel > 1 and itemEquipLoc ~= "INVTYPE_TABARD" and itemEquipLoc ~= "INVTYPE_BODY" then
                 totalItemLevel = totalItemLevel + itemLevel
                 numItems = numItems + 1
