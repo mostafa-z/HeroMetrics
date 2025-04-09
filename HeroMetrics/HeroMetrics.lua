@@ -947,11 +947,20 @@ local function GetSessionGoldGained()
 	return "• Session: " .. FormatGold(goldGained)
 end
 
+local function GetWarbandGold()
+	local WBGold = GetMoneyString(C_Bank.FetchDepositedMoney(Enum.BankType.Account), true)
+	return "• WarBand: " .. WBGold
+end
+
 local function AddCurrencyToTooltip(tooltip)
 	tooltip:AddLine(" ")
 	tooltip:AddLine("Currency:", 1, 1, 1)
 	tooltip:AddLine(GetCurrencyText(), 1, 1, 1)
 	tooltip:AddLine(GetSessionGoldGained(), 1, 1, 1)
+	if IsAltKeyDown() then
+		tooltip:AddLine(" ")
+		tooltip:AddLine(GetWarbandGold(), 1, 1, 1)
+	end
 end
 
 local function GetItemLevelDetails()
@@ -1087,9 +1096,55 @@ local function AddGetPlaytimeRankToTooltip(tooltip)
 	tooltip:AddLine("• Today's Rank: " .. rank .. " / " .. totalDays, 0.8, 0.8, 0.8)
 end
 
+local function AddLevelCountsToTooltip(tooltip)
+    if not HeroMetricsDB or type(HeroMetricsDB) ~= "table" then return end
+
+    local levelCounts = {}
+    local maxLevel = GetMaxLevelForLatestExpansion()
+	local totalCharacters = 0
+    local highThreshold = maxLevel - 10
+
+    -- Count characters per level
+    for _, data in pairs(HeroMetricsDB) do
+        if type(data) == "table" and data.level then
+            levelCounts[data.level] = (levelCounts[data.level] or 0) + 1
+			totalCharacters = totalCharacters + 1
+        end
+    end
+
+	if IsAltKeyDown() then
+		tooltip:AddLine(" ")
+		tooltip:AddLine("Characters (" .. totalCharacters .. " total):")
+	end
+
+    local sortedLevels = {}
+    for level in pairs(levelCounts) do
+        table.insert(sortedLevels, level)
+    end
+    table.sort(sortedLevels, function(a, b) return a > b end)
+
+    for _, level in ipairs(sortedLevels) do
+        local count = levelCounts[level]
+        local color
+
+        if level >= highThreshold then
+            color = "|cff00ff00"
+        elseif level >= (maxLevel / 2) then
+            color = "|cffffff00"
+        else
+            color = "|cffff8000"
+        end
+
+		if IsAltKeyDown() then
+			tooltip:AddLine(color .. "• Level " .. level .. ": " .. count .. "|r")  -- Add colored text
+		end
+    end
+end
+
 local function AddHelpToTooltip(tooltip)
     tooltip:AddLine(" ") -- Spacer
     tooltip:AddLine("|cFFFFFF00HeroMetrics|r - Hold |cFFFFA500Shift|r for Help") -- Minimal mode
+    tooltip:AddLine("|cFFFFFF00HeroMetrics|r - Hold |cFFFFA500Alt|r for Warband") -- Minimal mode
 
     -- Check if Shift is being held
     if IsShiftKeyDown() then
@@ -1132,6 +1187,8 @@ local function UpdateTooltip(tooltip)
 	AddItemLevelToTooltip(tooltip)
 
 	AddCurrencyToTooltip(tooltip)
+
+	AddLevelCountsToTooltip(tooltip)
 
 	AddMinMaxPlaytimeToTooltip(tooltip)
 
