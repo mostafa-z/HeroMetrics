@@ -361,6 +361,7 @@ end
 local function NotifyNewMail()
 	if HasNewMail() then
 		ShowNotificationMessage("You Have New Mail!", 10, 36, 0, 200) -- Customize as needed: message, duration, font size, xOffset, yOffset
+		print("|TInterface\\Minimap\\Tracking\\Mailbox:16:16|t |cffffff00[HeroMetrics]|r |cff00ff00You have new mail!|r")
 		notificationText:SetTextColor(1, 1, 0) -- Yellow
 		PlaySound(SOUNDKIT.PVP_THROUGH_QUEUE, "Master")
 	end
@@ -372,6 +373,7 @@ local function CheckUptimeNotification()
 	if uptime >= lastNotificationTime + 3600 then
 		lastNotificationTime = uptime
 		ShowNotificationMessage("Uptime Alert: " .. FormatTime(uptime), 5, 48, 0, 200)
+		print("|TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:16:16|t |cffffff00[HeroMetrics]|r |cff00ffffUptime Alert!|r |cffffffaaYou've been online for:|r |cff88ff88 " .. FormatTime(uptime) .. " |r")
 		notificationText:SetTextColor(1, 1, 0) -- Yellow
 		PlaySound(SOUNDKIT.READY_CHECK, "Master")
 	end
