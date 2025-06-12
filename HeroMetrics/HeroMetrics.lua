@@ -172,6 +172,127 @@ local function DBinit()
     end
 end
 
+local function CreateCharacterListFrame()
+    if HeroMetricsFrame then
+        HeroMetricsFrame:Show()
+        return
+    end
+
+    local frame = CreateFrame("Frame", "HeroMetricsFrame", UIParent, "BackdropTemplate")
+    frame:SetSize(400, 400)
+    frame:SetPoint("CENTER")
+    frame:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 32,
+        insets = { left = 8, right = 8, top = 8, bottom = 8 }
+    })
+    frame:SetMovable(true)
+    frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", frame.StartMoving)
+    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+
+    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+    title:SetPoint("TOP", 0, -10)
+    title:SetText("HeroMetrics")
+
+    -- ✨ Close Button
+    local closeButton = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+    closeButton:SetPoint("TOPRIGHT", -5, -5)
+    closeButton:SetScript("OnClick", function()
+        frame:Hide()
+    end)
+
+    local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", 10, -40)
+    scrollFrame:SetPoint("BOTTOMRIGHT", -30, 10)
+
+    local content = CreateFrame("Frame", nil, scrollFrame)
+    content:SetSize(1, 1)
+    scrollFrame:SetScrollChild(content)
+
+    frame.content = content
+end
+
+local function SortCharacters()
+    local list = {}
+
+    for key, data in pairs(HeroMetricsDB) do
+        if type(data) == "table" and data.level and data.ilevel and data.class then
+            table.insert(list, {key = key, level = data.level, ilevel = data.ilevel, class = data.class})
+        end
+    end
+
+    table.sort(list, function(a, b)
+        return a.ilevel > b.ilevel -- highest ilevel first
+    end)
+
+    return list
+end
+
+local function GetColorForCharacter(class)
+    if class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] then
+        return "|c" .. RAID_CLASS_COLORS[class].colorStr
+    else
+        return "|cffffffff" -- fallback white
+    end
+end
+
+local function ShowCharacterList()
+    CreateCharacterListFrame()
+
+    local content = HeroMetricsFrame.content
+    for i, child in ipairs({content:GetChildren()}) do
+        child:Hide()
+    end
+
+    local list = SortCharacters()
+
+    local offsetY = -10
+	for i, data in ipairs(list) do
+		local color = GetColorForCharacter(data.class)
+
+		local line = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+		line:SetPoint("TOPLEFT", 0, offsetY)
+		line:SetText(string.format("%d. %s%s|r - Level: %d - iLvl: %d", i, color, data.key, data.level, data.ilevel))
+		offsetY = offsetY - 20
+	end
+
+    content:SetHeight(-offsetY + 20)
+end
+
+local function CreateMinimapButton()
+    if HeroMetricsMinimapButton then
+        return
+    end
+
+    local button = CreateFrame("Button", "HeroMetricsMinimapButton", Minimap)
+    button:SetSize(32, 32)
+    button:SetFrameStrata("MEDIUM")
+    button:SetPoint("TOPLEFT", Minimap, "TOPLEFT", -5, 5)
+
+    button:SetNormalTexture("Interface\\Icons\\Ability_Hunter_MasterMarksman") -- TEMP icon
+    button:GetNormalTexture():SetAllPoints()
+
+    button:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+
+    button:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+        GameTooltip:AddLine("|cffffff00HeroMetrics|r")
+        GameTooltip:AddLine("Click to open your stats", 1, 1, 1)
+        GameTooltip:Show()
+    end)
+
+    button:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
+
+    button:SetScript("OnClick", function(self, button)
+        ShowCharacterList()
+    end)
+end
+
 local function AdjustFrameSize()
 	local textWidth = math.max(
 		xpText:GetStringWidth(),
@@ -392,7 +513,22 @@ end
 
 local function SaveProgress()
 	local characterKey = GetCharacterKey()
+	local currentLevel = UnitLevel("player")
 	HeroMetricsDB[characterKey] = HeroMetricsDB[characterKey] or {}
+
+
+	-- Save general character info
+	if HeroMetricsDB[characterKey].level ~= currentLevel then
+		print("Level mismatch detected. Updating level from:", HeroMetricsDB[characterKey].level or "nil", "to:", currentLevel)
+		HeroMetricsDB[characterKey].level = nil  -- optional, not strictly needed
+		HeroMetricsDB[characterKey].level = currentLevel
+	--else
+	--	print("Level matches:", currentLevel)
+	end
+
+	HeroMetricsDB[characterKey].class = select(2, UnitClass("player"))
+	HeroMetricsDB[characterKey].ilevel = cachedItemLevel
+
 	HeroMetricsDB[characterKey].lastXPChange = lastXPChange
 	HeroMetricsDB[characterKey].previousXPChange = previousXPChange
 	HeroMetricsDB[characterKey].iterationsNeeded = iterationsNeeded
@@ -430,6 +566,11 @@ local function LoadProgress()
 
 		xpBarEnabled = false
 	end
+end
+
+local function CachedILevel()
+    local _, avgItemLevel = GetAverageItemLevel()
+    cachedItemLevel = math.floor(avgItemLevel or 0)
 end
 
 local function ToggleCustomXPTracking()
@@ -1450,6 +1591,10 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
         LoadTimeGoalProgress()
         sessionStart = GetTime()
 
+		CreateMinimapButton()
+
+		CachedILevel()
+
 		ResetSession()
 		LoadProgress()
 		UpdateXP()
@@ -1488,6 +1633,7 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 
 		delayTimer = C_Timer.NewTimer(0.5, function()
 			UpdateXP()
+			CachedILevel()
 		end)
 	elseif event == "PLAYER_LOGOUT" then
 		SaveProgress()
