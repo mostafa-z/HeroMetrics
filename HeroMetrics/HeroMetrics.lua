@@ -104,116 +104,6 @@ local timeGoalText = timeGoalFrame:CreateFontString(nil, "OVERLAY", "GameFontNor
 timeGoalText:SetPoint("CENTER", timeGoalFrame, "CENTER", 0, 0)
 timeGoalText:SetText("Time Goal: Loading ...")
 
-local levelBar = CreateFrame("Frame", "HeroMetricsLevelBar", UIParent, "BackdropTemplate")
-levelBar:SetSize(400, 20)
-levelBar:SetPoint("TOP", UIParent, "TOP", 0, -50)
-levelBar:SetBackdrop({ bgFile = "Interface/Tooltips/UI-Tooltip-Background" })
-levelBar:SetBackdropColor(0, 0, 0, 0.5)
-levelBar:Show()
-
-local levelFill = levelBar:CreateTexture(nil, "ARTWORK")
-levelFill:SetColorTexture(1, 1, 1, 1)
-levelFill:SetPoint("LEFT", levelBar, "LEFT", 0, 0)
-levelFill:SetHeight(levelBar:GetHeight())
-
-local levelFillText = levelBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-levelFillText:SetPoint("CENTER", levelFill, "CENTER", 10, 0)
-levelFillText:SetText("")
-levelFillText:SetTextColor(1, 1, 1)
-
-function CreateTextOutline(fontString)
-    fontString:SetShadowOffset(1, -1)
-    fontString:SetShadowColor(0, 0, 0, 1)
-end
-
-CreateTextOutline(levelFillText)
-
-local levelMarkers = {}
-
-local function InterpolateColor(startRGB, endRGB, factor)
-    return startRGB[1] + (endRGB[1] - startRGB[1]) * factor,
-           startRGB[2] + (endRGB[2] - startRGB[2]) * factor,
-           startRGB[3] + (endRGB[3] - startRGB[3]) * factor
-end
-
-local function LevelDelimiters(startLevel, endLevel, step, stageTransition)
-    for _, marker in ipairs(levelMarkers) do
-        marker:Hide()
-    end
-    wipe(levelMarkers)
-
-    for i = startLevel, endLevel, step do
-        local marker = levelBar:CreateTexture(nil, "OVERLAY")
-
-        if i == stageTransition or i == endLevel then
-            marker:SetColorTexture(1, 1, 1, 1)
-            marker:SetSize(6, 22)
-        elseif i <= UnitLevel("player") then
-
-			local startColor = { 1, 0.5, 0.2 } -- Orange
-			local endColor = { 0.2, 1, 0.2 } -- Green
-			local r, g, b = InterpolateColor(startColor, endColor, step)
-			marker:SetVertexColor(r, g, b, 1)
-
-            marker:SetSize(4, 18)
-        else
-            marker:SetColorTexture(0.2, 0.5, 1, 1) -- Blue
-            marker:SetSize(4, 18)
-        end
-
-        local progress = (i - startLevel) / (endLevel - startLevel)
-        local calculatedPosition = math.floor(progress * 400 + 0.5)
-
-        marker:SetPoint("CENTER", levelBar, "LEFT", calculatedPosition, 0)
-        table.insert(levelMarkers, marker)
-    end
-end
-
-local function GetLevelProgress()
-    local maxLevel = GetMaxPlayerLevel()
-    local stage1End = maxLevel - 10
-    local currentLevel = UnitLevel("player")
-    local xp, xpMax = UnitXP("player"), UnitXPMax("player") -- Get exact XP progress
-    local levelProgress = xpMax > 0 and (xp / xpMax) or 0
-
-    if currentLevel < stage1End then
-        -- Stage 1: Level 1 to `maxLevel - 10`
-        local overallProgress = ((currentLevel) + levelProgress) / (stage1End - 1)
-        return overallProgress, 0, stage1End, 10, stage1End -- Step = 10 for delimiters
-    else
-        -- Stage 2: `maxLevel - 10` to maxLevel
-        local overallProgress = ((currentLevel - stage1End) + levelProgress) / (maxLevel - stage1End)
-        return overallProgress, stage1End, maxLevel, 1, maxLevel -- Step = 1 for delimiters
-    end
-end
-
-local function UpdateLevelBar()
-    local progress, startLevel, endLevel, step, stageTransition = GetLevelProgress()
-
-    LevelDelimiters(startLevel, endLevel, step, stageTransition)
-
-    local newWidth = 400 * progress
-    levelFill:SetSize(newWidth, 20)
-
-    local startColor = { 1, 0.5, 0.2 } -- Orange
-    local endColor = { 0.2, 0.75, 0.2 } -- Green
-    local r, g, b = InterpolateColor(startColor, endColor, progress)
-    levelFill:SetVertexColor(r, g, b, 1)
-
-	local percentage
-
-	if UnitLevel("player") < GetMaxPlayerLevel() - 10 then
-		percentage = math.floor((UnitLevel("player") / stageTransition) * 100) .. "%"
-	else
-		percentage = math.floor(progress * 100) .. "%"
-	end
-
-	levelFillText:SetText(percentage)
-
-    levelFill:SetAlpha(0.7)
-    C_Timer.After(0.5, function() levelFill:SetAlpha(1) end)
-end
-
 local timeGoal, timeOver = 0, 0
 local trackingTimeGoal = false
 local elapsedTime = 0
@@ -262,10 +152,9 @@ local function DBinit()
     -- Ensure xpProgressBar exists before modifying it
     if not xpProgressBar then return end
 
-    -- Hide XP bar and Level bar for max-level characters but don't override DB setting
+    -- Hide XP bar for max-level characters but don't override DB setting
     if IsMaxLevel() then
         xpProgressBar:Hide()
-		levelBar:Hide()
         return
     end
 
@@ -275,7 +164,6 @@ local function DBinit()
     else
         xpProgressBar:Hide()
     end
-
 end
 
 local function AdjustFrameSize()
@@ -499,7 +387,6 @@ end
 local function SaveProgress()
 	local characterKey = GetCharacterKey()
 	HeroMetricsDB[characterKey] = HeroMetricsDB[characterKey] or {}
-	HeroMetricsDB[characterKey].level = UnitLevel("player")
 	HeroMetricsDB[characterKey].lastXPChange = lastXPChange
 	HeroMetricsDB[characterKey].previousXPChange = previousXPChange
 	HeroMetricsDB[characterKey].iterationsNeeded = iterationsNeeded
@@ -1342,8 +1229,6 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
         LoadTimeGoalProgress()
         sessionStart = GetTime()
 
-		UpdateLevelBar()
-
 		ResetSession()
 		LoadProgress()
 		UpdateXP()
@@ -1357,8 +1242,6 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 		UpdateCustomXPTracking()
 	elseif event == "PLAYER_LEVEL_UP" then
 		ShowLevelUpStats()
-
-        UpdateLevelBar()
 
 		if IsMaxLevel() and trackingXP then
 			customXPText:Hide()
