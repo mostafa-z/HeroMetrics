@@ -841,7 +841,7 @@ local function UpdateXP()
 	local xpRemaining = maxXP - currentXP
 	local restedXP = GetXPExhaustion() or 0
 
-	if currentXP > lastKnownXP then
+	if lastKnownXP and currentXP > lastKnownXP then
 		if lastKnownXP == 0 then
 			lastKnownXP = currentXP
 		end
