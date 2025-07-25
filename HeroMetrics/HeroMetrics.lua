@@ -1529,6 +1529,10 @@ local function AddHelpToTooltip(tooltip)
         tooltip:AddLine("• |cFFFFFFFFCancel Time Goal:|r |cFFFFA500/hmtg cancel|r")
 
         tooltip:AddLine(" ")
+        tooltip:AddLine("|cFF00FF00Misc Features:|r") -- Green subheader
+        tooltip:AddLine("• |cFFFFFFFFWipe Char Data:|r |cFFFFA500/hmwipe [char/all]|r")
+
+        tooltip:AddLine(" ")
         tooltip:AddLine("|cFF00FF00Other Features:|r") -- Green subheader
         tooltip:AddLine("• |cFFFFFFFFCheck Mail & Gold Notifications:|r |cFFFFA500Auto|r")
 
@@ -1681,6 +1685,49 @@ SlashCmdList["HEROMETRICSTG"] = function(msg)
         print("Time Goal set to " .. tostring(goal) .. " minutes. Allowing " .. tostring(over) .. " minutes over.")
     else
         print("Usage: /hmtg <minutes> [over time]")
+    end
+end
+
+SLASH_HEROMETRICSWIPE1 = "/hmwipe"
+
+SlashCmdList["HEROMETRICSWIPE"] = function(msg)
+    msg = msg:lower():gsub("^%s+", "") -- trim leading space
+
+    if msg == "all" then
+        HeroMetricsDB = {}
+        print("|cffff5555HeroMetrics: All character data wiped.|r")
+        return
+    end
+
+    local charKey
+
+	if msg ~= "" then
+		-- Accept both "name - realm" and "name-realm"
+		local name, realm = msg:match("^([^%-%s]+)[%s%-]+(.+)$")
+		if name and realm then
+			-- Trim spaces and normalize capitalization
+			name = name:sub(1, 1):upper() .. name:sub(2):lower()
+			realm = realm:gsub("^%s*(.-)%s*$", "%1") -- trim
+			realm = realm:gsub("(%l)(%w*)", function(a, b) return a:upper() .. b:lower() end)
+
+			charKey = name .. "-" .. realm
+		else
+			print("|cffff0000HeroMetrics: Invalid format. Use `/hmwipe Name - Realm` or `/hmwipe all`.|r")
+			return
+		end
+    else
+        -- Use current player
+        local name, realm = UnitName("player"), GetRealmName()
+        if name and realm then
+            charKey = name .. "-" .. realm
+        end
+    end
+
+    if charKey and HeroMetricsDB and HeroMetricsDB[charKey] then
+        HeroMetricsDB[charKey] = nil
+        print("|cffff5555HeroMetrics: Data for |r" .. charKey .. "|cffff5555 wiped.|r")
+    else
+        print("|cffffff00HeroMetrics: No data found for:|r " .. (charKey or "unknown character"))
     end
 end
 
