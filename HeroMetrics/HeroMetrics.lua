@@ -1312,6 +1312,8 @@ local function GetMinMaxPlaytime()
 end
 
 local function AddMinMaxPlaytimeToTooltip(tooltip)
+	if IsControlKeyDown() then return end
+
 	local minTime, maxTime, minDay, maxDay = GetMinMaxPlaytime()
 
 	tooltip:AddLine(" ")
@@ -1342,6 +1344,8 @@ local function GetWeeklyAveragePlaytime()
 end
 
 local function AddGetWeeklyAveragePlaytimeToTooltip(tooltip)
+	if IsControlKeyDown() then return end
+
 	tooltip:AddLine(" ")
 	tooltip:AddLine("• Weekly Avg: " .. GetWeeklyAveragePlaytime(), 0.5, 0.5, 1)
 end
@@ -1367,6 +1371,8 @@ local function GetPlaytimeRank()
 end
 
 local function AddGetPlaytimeRankToTooltip(tooltip)
+	if IsControlKeyDown() then return end
+
 	local rank, totalDays = GetPlaytimeRank()
 
 	tooltip:AddLine(" ")
@@ -1642,6 +1648,8 @@ local function AddItemLevelToTooltip(tooltip)
 end
 
 local function AddNoteToTooltip(tooltip)
+	if IsControlKeyDown() then return end
+
 	local charKey = GetCharacterKey()
 	local data = HeroMetricsDB and HeroMetricsDB[charKey]
 	local note = data and data.note
@@ -1667,6 +1675,8 @@ local function AddNoteToTooltip(tooltip)
 end
 
 local function AddHelpToTooltip(tooltip)
+    if IsControlKeyDown() then return end
+
     tooltip:AddLine(" ") -- Spacer
     tooltip:AddLine("|cFFFFFF00HeroMetrics|r - Hold |cFFFFA500Shift|r for Help") -- Minimal mode
     tooltip:AddLine("|cFFFFFF00HeroMetrics|r - Hold |cFFFFA500Alt|r for Warband") -- Minimal mode
