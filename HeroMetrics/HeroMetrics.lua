@@ -385,15 +385,50 @@ local function ShowCharacterList()
     end
 
     local list = SortCharacters()
+    local classCount = {}
+    local sortedClasses = {}
 
     local offsetY = -10
-	for i, data in ipairs(list) do
-		local color = GetColorForCharacter(data.class)
+    for i, data in ipairs(list) do
+        local color = GetColorForCharacter(data.class)
+
+        local line = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        line:SetPoint("TOPLEFT", 0, offsetY)
+        line:SetText(string.format("%d. %s%s|r - Level: %d - iLvl: %d", i, color, data.key, data.level, data.ilevel))
+        offsetY = offsetY - 20
+
+        classCount[data.class] = (classCount[data.class] or 0) + 1
+    end
+
+    -- Add spacing before class breakdown
+    offsetY = offsetY - 10
+
+    local header = content:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    header:SetPoint("TOPLEFT", 0, offsetY)
+    header:SetText("|cFFFFFF00Class Breakdown:|r")
+    offsetY = offsetY - 20
+
+	for classToken, count in pairs(classCount) do
+		table.insert(sortedClasses, { class = classToken, count = count })
+	end
+
+	table.sort(sortedClasses, function(a, b)
+		if a.count == b.count then
+			return a.class < b.class
+		end
+		return a.count > b.count
+	end)
+
+	for _, entry in ipairs(sortedClasses) do
+		local classToken = entry.class
+		local count = entry.count
+		local color = GetColorForCharacter(classToken)
+		local className = LOCALIZED_CLASS_NAMES_MALE[classToken] or classToken
 
 		local line = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 		line:SetPoint("TOPLEFT", 0, offsetY)
-		line:SetText(string.format("%d. %s%s|r - Level: %d - iLvl: %d", i, color, data.key, data.level, data.ilevel))
-		offsetY = offsetY - 20
+		line:SetText(string.format("• %s%s|r: %d", color, className, count))
+		offsetY = offsetY - 16
 	end
 
     content:SetHeight(-offsetY + 20)
