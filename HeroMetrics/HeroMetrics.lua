@@ -1703,6 +1703,7 @@ local function AddHelpToTooltip(tooltip)
         tooltip:AddLine(" ")
         tooltip:AddLine("|cFF00FF00Misc Features:|r") -- Green subheader
         tooltip:AddLine("• |cFFFFFFFFWipe Char Data:|r |cFFFFA500/hmwipe [char/all]|r")
+        tooltip:AddLine("• |cFFFFFFFFAdd Char Note:|r |cFFFFA500/hmnoteui|r")
 
         tooltip:AddLine(" ")
         tooltip:AddLine("|cFF00FF00Other Features:|r") -- Green subheader
