@@ -379,6 +379,8 @@ end
 local function ShowCharacterList()
     CreateCharacterListFrame()
 
+    local MAX_LEVEL = GetMaxPlayerLevel()
+
     local content = HeroMetricsFrame.content
     for i, child in ipairs({content:GetChildren()}) do
         child:Hide()
@@ -386,6 +388,7 @@ local function ShowCharacterList()
 
     local list = SortCharacters()
     local classCount = {}
+    local classStats = {}
     local sortedClasses = {}
 
     local offsetY = -10
@@ -398,6 +401,24 @@ local function ShowCharacterList()
         offsetY = offsetY - 20
 
         classCount[data.class] = (classCount[data.class] or 0) + 1
+
+        -- Build stats
+        classStats[data.class] = classStats[data.class] or {
+            count = 0,
+            sum = 0,
+            min = data.ilevel,
+            max = data.ilevel,
+            levelmax = data.level,
+        }
+
+        local stats = classStats[data.class]
+        stats.count = stats.count + 1
+        stats.sum = stats.sum + data.ilevel
+        stats.min = math.min(stats.min, data.ilevel)
+        stats.max = math.max(stats.max, data.ilevel)
+        stats.levelmax = math.max(stats.levelmax, data.level)
+
+        stats.levelMaxCount = (stats.levelMaxCount or 0) + (data.level == MAX_LEVEL and 1 or 0)
     end
 
     -- Add spacing before class breakdown
@@ -409,7 +430,7 @@ local function ShowCharacterList()
     offsetY = offsetY - 20
 
 	for classToken, count in pairs(classCount) do
-		table.insert(sortedClasses, { class = classToken, count = count })
+		table.insert(sortedClasses, { class = classToken, count = count, stats = classStats[classToken] })
 	end
 
 	table.sort(sortedClasses, function(a, b)
@@ -422,12 +443,23 @@ local function ShowCharacterList()
 	for _, entry in ipairs(sortedClasses) do
 		local classToken = entry.class
 		local count = entry.count
+		local stats = entry.stats
 		local color = GetColorForCharacter(classToken)
 		local className = LOCALIZED_CLASS_NAMES_MALE[classToken] or classToken
+		--local avg = stats.sum / stats.count
 
 		local line = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 		line:SetPoint("TOPLEFT", 0, offsetY)
-		line:SetText(string.format("• %s%s|r: %d", color, className, count))
+
+		local capped = stats.levelMaxCount or 0
+		local cappedColor = (capped == count) and "|cff00ff00" or "|cffffa500"
+		line:SetText(string.format(
+			"• %s%s|r: |cFFFFFFFF%d|r  |cff87CEFA(Max: %d)|r  %sCapped: %d/%d",
+			color, className,
+			count,
+			stats.levelmax,
+			cappedColor, capped, count
+		))
 		offsetY = offsetY - 16
 	end
 
