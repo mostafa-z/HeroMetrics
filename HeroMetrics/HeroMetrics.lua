@@ -1904,11 +1904,11 @@ eventFrame:RegisterEvent("UPDATE_PENDING_MAIL")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterUnitEvent("UNIT_HEALTH", "player")
 
-eventFrame:SetScript("OnEvent", function(self, event, unit)
+eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
 	if event == "UPDATE_PENDING_MAIL" or event == "PLAYER_ENTERING_WORLD" then
 		C_Timer.After(1, NotifyNewMail)
 		C_Timer.After(1, CheckGoldNotification)
-	elseif event == "UNIT_HEALTH" and unit == "player" then
+	elseif event == "UNIT_HEALTH" and arg1 == "player" then
 		UpdateHealthAlert()
 	end
 end)
