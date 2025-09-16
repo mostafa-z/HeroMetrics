@@ -1342,6 +1342,30 @@ local function GetDurabilityPercentage()
 	end
 end
 
+-- Function to update durability visuals
+local function UpdateDurabilityVisual()
+    local durabilityPercentage = GetDurabilityPercentage()
+
+    if durabilityPercentage then
+        if durabilityPercentage >= 90 then
+            -- White (safe)
+            xpFrame:SetBackdropBorderColor(1, 1, 1, 1)
+        elseif durabilityPercentage >= 60 then
+            -- Yellow (warning)
+            xpFrame:SetBackdropBorderColor(1, 1, 0, 1)
+        else
+            -- Orange (critical, not PvP red)
+            xpFrame:SetBackdropBorderColor(1, 0.5, 0, 1)
+        end
+    end
+end
+
+-- Run once immediately
+UpdateDurabilityVisual()
+
+-- Keep checking every 5 seconds
+C_Timer.NewTicker(5, UpdateDurabilityVisual)
+
 local function AddDurabilityToTooltip(tooltip)
 	durabilityPercentage = GetDurabilityPercentage()
 	if durabilityPercentage and durabilityPercentage < 90 then
