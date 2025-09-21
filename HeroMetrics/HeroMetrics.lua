@@ -708,7 +708,7 @@ local function UpdatePlaytimeDisplay()
     -- Apply changes
     playtimeText:SetFont(playtimeText:GetFont(), fontSize)
     playtimeText:SetTextColor(r, g, b, 1)
-    playtimeText:SetText("\nToday:" .. FormatPlaytime(totalTime))
+    playtimeText:SetText(FormatTime(totalTime))
 
     AdjustFrameSize()
 end
@@ -2028,7 +2028,7 @@ end
 
 local function UpdateUptime()
 	local uptime = GetTime() - addonStartTime
-	uptimeText:SetText("Uptime: " .. FormatTime(uptime))
+	uptimeText:SetText(FormatTime(uptime))
 
     -- Check if 5 minutes (300 seconds) have passed since the last update
     if GetTime() - lastPlaytimeUpdate >= 300 then
