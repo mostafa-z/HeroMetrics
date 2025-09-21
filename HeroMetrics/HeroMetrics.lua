@@ -287,6 +287,29 @@ local function IsMaxLevel()
 	return UnitLevel("player") == GetMaxPlayerLevel()
 end
 
+local function AddFactionWatermark()
+	local faction = UnitFactionGroup("player")
+
+	local bgIcon = xpFrame:CreateTexture(nil, "BACKGROUND")
+	bgIcon:SetPoint("CENTER", xpFrame, "CENTER")
+	bgIcon:SetAlpha(0.2)
+	bgIcon:SetBlendMode("ADD")
+	bgIcon:SetTexture(faction == "Alliance"
+		and "Interface\\FriendsFrame\\PlusManz-Alliance"
+		or  "Interface\\FriendsFrame\\PlusManz-Horde")
+
+	-- Keep it proportional to the frame's current size
+	local function ResizeWatermark()
+		local w, h = xpFrame:GetSize()
+		-- pick the smaller dimension so it always stays inside
+		local side = math.min(w, h) * 0.8    -- 80 % of frame for a nice margin
+		bgIcon:SetSize(side, side)
+	end
+
+	xpFrame:HookScript("OnSizeChanged", ResizeWatermark)
+	ResizeWatermark()
+end
+
 local function DBinit()
     HeroMetricsDB = HeroMetricsDB or {}  -- Ensure the database exists
     HeroMetricsDB.xpBarEnabled = HeroMetricsDB.xpBarEnabled or false  -- Default to false if not set
@@ -1871,6 +1894,7 @@ xpFrame:SetScript("OnEvent", function(self, event, ...)
 		LoadProgress()
 		UpdateXP()
 		GetPVPStatus()
+		AddFactionWatermark()
 		if not xpFrame.uptimeTicker then
 			xpFrame.uptimeTicker = C_Timer.NewTicker(1, CheckUptimeNotification)
 		end
