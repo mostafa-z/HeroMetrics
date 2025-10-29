@@ -4,4 +4,14 @@
 ## Version: 3
 ## SavedVariables: HeroMetricsDB
 ## Author: mostafa-z
-HeroMetrics.lua
+## Category: Hero Helper
+
+variable.lua
+utils.lua
+ui/mainframe.lua
+core.lua
+ui/notes.lua
+xp_tracking.lua
+playtime.lua
+notification.lua
+tooltip.lua
