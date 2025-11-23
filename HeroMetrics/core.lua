@@ -60,6 +60,10 @@ function HeroMetrics.SaveProgress()
 	HeroMetricsDB[characterKey].userInteract = userInteract
 
 	HeroMetricsDB[characterKey].xpBarEnabled = xpBarEnabled
+
+	local cx, cy = HeroMetrics.xpFrame:GetCenter()
+	HeroMetricsDB[characterKey].frameX = cx
+	HeroMetricsDB[characterKey].frameY = cy
 end
 
 local function LoadProgress()
@@ -75,6 +79,21 @@ local function LoadProgress()
 		userInteract = data and data.userInteract or false
 
 		xpBarEnabled = data and data.xpBarEnabled or false
+
+		local fx = data.frameX
+		local fy = data.frameY
+
+		if fx and fy then
+			HeroMetrics.xpFrame:ClearAllPoints()
+			HeroMetrics.xpFrame:SetPoint(
+				"CENTER",
+				UIParent,
+				"BOTTOMLEFT",
+				fx,
+				fy
+			)
+		end
+
 	else
 		HeroMetrics.lastXPChange = 0
 		HeroMetrics.previousXPChange = 0
@@ -281,4 +300,11 @@ HeroMetrics.xpFrame:SetScript("OnMouseDown", function(self, button)
 end)
 HeroMetrics.xpFrame:SetScript("OnMouseUp", function(self, button)
 	self:StopMovingOrSizing()
+
+	local characterKey = HeroMetrics.GetCharacterKey()
+	HeroMetricsDB[characterKey] = HeroMetricsDB[characterKey] or {}
+
+	local cx, cy = self:GetCenter()
+	HeroMetricsDB[characterKey].frameX = cx
+	HeroMetricsDB[characterKey].frameY = cy
 end)
