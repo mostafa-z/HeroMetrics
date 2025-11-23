@@ -69,9 +69,9 @@ end
 
 function HeroMetrics.GetPVPStatus()
 	if C_PvP.IsWarModeDesired() then
-		HeroMetrics.xpFrame:SetBackdropBorderColor(1, 0, 0, 1) --Red
+		HeroMetrics.uptimeText:SetTextColor(1, 0.3, 0.3, 1) --Red
 	else
-		HeroMetrics.xpFrame:SetBackdropBorderColor(1, 1, 1, 1) --White
+		HeroMetrics.uptimeText:SetTextColor(1, 0.82, 0.0, 1) --Yellow
 	end
 end
 
