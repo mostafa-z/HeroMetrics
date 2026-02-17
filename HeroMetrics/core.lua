@@ -189,8 +189,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
 	if event == "UPDATE_PENDING_MAIL" or event == "PLAYER_ENTERING_WORLD" then
 		C_Timer.After(1, HeroMetrics.NotifyNewMail)
 		C_Timer.After(1, HeroMetrics.CheckGoldNotification)
+--[[
+	-- API 12 : Health is a secret value
+	-- Notification.lua
 	elseif event == "UNIT_HEALTH" and arg1 == "player" then
 		HeroMetrics.UpdateHealthAlert()
+]]
 	end
 end)
 
