@@ -107,6 +107,15 @@ local function LoadProgress()
 	end
 end
 
+local function StartItemLevelTracking()
+	if not sessionStarted then
+		HeroMetrics.StoreInitialItemLevels()
+		sessionStarted = true
+	end
+
+	HeroMetrics.upgradedItems = HeroMetrics.upgradedItems or {}
+end
+
 HeroMetrics.xpFrame:SetScript("OnEvent", OnEvent)
 HeroMetrics.xpFrame:RegisterEvent("PLAYER_LOGIN")
 HeroMetrics.xpFrame:RegisterEvent("PLAYER_XP_UPDATE")
@@ -169,6 +178,10 @@ HeroMetrics.xpFrame:SetScript("OnEvent", function(self, event, ...)
 		delayTimer = C_Timer.NewTimer(0.5, function()
 			HeroMetrics.UpdateXP()
 			CachedILevel()
+
+			if sessionStarted then
+				HeroMetrics.CalculateItemLevelDifference()
+			end
 		end)
 	elseif event == "PLAYER_LOGOUT" then
 		HeroMetrics.SaveProgress()
@@ -189,12 +202,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
 	if event == "UPDATE_PENDING_MAIL" or event == "PLAYER_ENTERING_WORLD" then
 		C_Timer.After(1, HeroMetrics.NotifyNewMail)
 		C_Timer.After(1, HeroMetrics.CheckGoldNotification)
---[[
-	-- API 12 : Health is a secret value
-	-- Notification.lua
+		C_Timer.After(1, StartItemLevelTracking)
 	elseif event == "UNIT_HEALTH" and arg1 == "player" then
-		HeroMetrics.UpdateHealthAlert()
-]]
+		--HeroMetrics.UpdateHealthAlert()
 	end
 end)
 

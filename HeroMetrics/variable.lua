@@ -38,7 +38,9 @@ HeroMetrics.customXPTimer = nil
 HeroMetrics.initialItemLevels = {}
 HeroMetrics.previousItemLevels = {}
 HeroMetrics.sessionStarted = false
-HeroMetrics.upgradedItems = {}
+HeroMetrics.previousItemLevels = HeroMetrics.previousItemLevels or {}
+HeroMetrics.initialItemLevels = HeroMetrics.initialItemLevels or {}
+HeroMetrics.upgradedItems = HeroMetrics.upgradedItems or {}
 
 HeroMetrics.goldNotified = false
 

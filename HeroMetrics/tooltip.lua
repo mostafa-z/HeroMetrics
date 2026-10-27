@@ -179,74 +179,6 @@ local function CountItemsByItemLevel()
 	return itemLevelCounts
 end
 
-local function StoreInitialItemLevels()
-	for i = 1, 19 do
-		local itemLink = GetInventoryItemLink("player", i)
-		local itemLoc = ItemLocation:CreateFromEquipmentSlot(i)
-		local itemLevel = C_Item.DoesItemExist(itemLoc) and C_Item.GetCurrentItemLevel(itemLoc) or 0
-
-		if itemLink then
-			local itemName, _, itemQuality, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemLink)
-			local itemColor = itemQuality and ITEM_QUALITY_COLORS[itemQuality] and ITEM_QUALITY_COLORS[itemQuality].hex or "|cffffffff"
-			HeroMetrics.initialItemLevels[i] = {level = itemLevel, name = itemName, slot = itemEquipLoc, color = itemColor}
-			HeroMetrics.previousItemLevels[i] = {level = itemLevel, name = itemName, slot = itemEquipLoc, color = itemColor}
-		else
-			HeroMetrics.initialItemLevels[i] = {level = 0, name = nil, slot = nil, color = "|cffffffff"}
-			HeroMetrics.previousItemLevels[i] = {level = 0, name = nil, slot = nil, color = "|cffffffff"}
-		end
-	end
-	sessionStarted = true
-end
-
-local function CalculateItemLevelDifference()
-	local totalDifference = 0
-	local numItems = 0
-	local itemChangesDetected = false
-
-	for i = 1, 19 do
-		local itemLink = GetInventoryItemLink("player", i)
-		local itemLoc = ItemLocation:CreateFromEquipmentSlot(i)
-		local currentItemLevel = C_Item.DoesItemExist(itemLoc) and C_Item.GetCurrentItemLevel(itemLoc) or 0
-
-		if itemLink then
-			local itemName, _, itemQuality, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemLink)
-			local itemColor = itemQuality and ITEM_QUALITY_COLORS[itemQuality] and ITEM_QUALITY_COLORS[itemQuality].hex or "|cffffffff"
-
-			local initialItemLevel = HeroMetrics.initialItemLevels[i] and HeroMetrics.initialItemLevels[i].level or 0
-			local previousItemLevel = HeroMetrics.previousItemLevels[i] and HeroMetrics.previousItemLevels[i].level or 0
-			local previousItemName = HeroMetrics.previousItemLevels[i] and HeroMetrics.previousItemLevels[i].name or "Unknown"
-			local previousItemColor = HeroMetrics.previousItemLevels[i] and HeroMetrics.previousItemLevels[i].color or "|cffffffff"
-
-			local difference = currentItemLevel - initialItemLevel
-
-			if currentItemLevel ~= previousItemLevel or itemName ~= previousItemName then
-				table.insert(upgradedItems, {
-					slot = itemEquipLoc,
-					initialName = previousItemName,
-					initialLevel = previousItemLevel,
-					initialColor = previousItemColor,
-					currentName = itemName,
-					currentLevel = currentItemLevel,
-					currentColor = itemColor,
-					difference = currentItemLevel - previousItemLevel
-				})
-				previousItemLevels[i] = {
-					level = currentItemLevel,
-					name = itemName,
-					slot = itemEquipLoc,
-					color = itemColor
-				}
-				itemChangesDetected = true
-			end
-
-			totalDifference = totalDifference + difference
-			numItems = numItems + 1
-		end
-	end
-
-	return totalDifference, numItems, itemChangesDetected
-end
-
 local function AddItemLevelToTooltip(tooltip)
 	if not IsControlKeyDown() then return end
 
@@ -271,9 +203,9 @@ local function AddItemLevelToTooltip(tooltip)
 	for _, itemLevel in ipairs(sortedItemLevels) do
 		local count = itemLevelCounts[itemLevel].count
 		local items = itemLevelCounts[itemLevel].items
-		tooltip:AddLine(string.format("  %d: %d items", itemLevel, count), 0.5, 0.5, 1.0)
+		tooltip:AddLine(string.format("%d: %d items", itemLevel, count), 0.5, 0.5, 1.0)
 		for _, item in ipairs(items) do
-			tooltip:AddLine(string.format("	%s: %s", item.slot, item.link), 0.7, 0.7, 1.0)
+			tooltip:AddLine(string.format("  %s: %s", item.slot, item.link), 0.7, 0.7, 1.0)
 		end
 	end
 
@@ -337,8 +269,7 @@ local function AddItemLevelToTooltip(tooltip)
 		tooltip:AddLine("No valid items found to calculate average item level.", 1, 0, 0)
 	end
 
-	if not sessionStarted then StoreInitialItemLevels() end
-	local totalDiff, numItemsDiff, changed = CalculateItemLevelDifference()
+	local totalDiff, numItemsDiff, changed = HeroMetrics.CalculateItemLevelDifference()
 	local avgDiff = numItemsDiff > 0 and (totalDiff / numItemsDiff) or 0
 
 	if totalDiff ~= 0 or changed then
@@ -351,7 +282,7 @@ local function AddItemLevelToTooltip(tooltip)
 		tooltip:AddLine("Upgraded Items:", 1, 1, 1)
 
 		local displayItems = {}
-		for _, item in ipairs(upgradedItems) do
+		for _, item in ipairs(HeroMetrics.upgradedItems) do
 			local slotName = item.slot and item.slot:gsub("INVTYPE_", ""):gsub("^%l", string.upper) or "Unknown"
 			table.insert(displayItems, {
 				slot = slotName,
