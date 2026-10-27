@@ -87,7 +87,7 @@ function HeroMetrics.StoreInitialItemLevels()
 		local itemLevel = C_Item.DoesItemExist(itemLoc) and C_Item.GetCurrentItemLevel(itemLoc) or 0
 
 		if itemLink then
-			local itemName, _, itemQuality, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemLink)
+			local itemName, _, itemQuality, _, _, _, _, _, itemEquipLoc = C_Item.GetItemInfo(itemLink)
 			local itemColor = itemQuality and ITEM_QUALITY_COLORS[itemQuality] and ITEM_QUALITY_COLORS[itemQuality].hex or "|cffffffff"
 			HeroMetrics.initialItemLevels[i] = {level = itemLevel, name = itemName, slot = itemEquipLoc, color = itemColor}
 			HeroMetrics.previousItemLevels[i] = {level = itemLevel, name = itemName, slot = itemEquipLoc, color = itemColor}
@@ -110,7 +110,7 @@ function HeroMetrics.CalculateItemLevelDifference()
 		local currentItemLevel = C_Item.DoesItemExist(itemLoc) and C_Item.GetCurrentItemLevel(itemLoc) or 0
 
 		if itemLink then
-			local itemName, _, itemQuality, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemLink)
+			local itemName, _, itemQuality, _, _, _, _, _, itemEquipLoc = C_Item.GetItemInfo(itemLink)
 			local itemColor = itemQuality and ITEM_QUALITY_COLORS[itemQuality] and ITEM_QUALITY_COLORS[itemQuality].hex or "|cffffffff"
 
 			local initialItemLevel = HeroMetrics.initialItemLevels[i] and HeroMetrics.initialItemLevels[i].level or 0

@@ -163,7 +163,7 @@ local function CountItemsByItemLevel()
 		if itemLink then
 			local itemLoc = ItemLocation:CreateFromEquipmentSlot(i)
 			local itemLevel = C_Item.DoesItemExist(itemLoc) and C_Item.GetCurrentItemLevel(itemLoc) or 0
-			local itemSlot = select(9, GetItemInfo(itemLink))
+			local itemSlot = select(9, C_Item.GetItemInfo(itemLink))
 			if itemLevel and itemLevel > 0 then
 				if not itemLevelCounts[itemLevel] then
 					itemLevelCounts[itemLevel] = { count = 0, items = {} }
@@ -216,7 +216,7 @@ local function AddItemLevelToTooltip(tooltip)
 	for i = 1, 19 do
 		local itemLink = GetInventoryItemLink("player", i)
 		if itemLink then
-			local itemName, _, _, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemLink)
+			local itemName, _, _, _, _, _, _, _, itemEquipLoc = C_Item.GetItemInfo(itemLink)
 			local itemLoc = ItemLocation:CreateFromEquipmentSlot(i)
 			local itemLevel = C_Item.DoesItemExist(itemLoc) and C_Item.GetCurrentItemLevel(itemLoc) or 0
 			if itemLevel > 1 and itemEquipLoc ~= "INVTYPE_TABARD" and itemEquipLoc ~= "INVTYPE_BODY" then
